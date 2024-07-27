@@ -1,0 +1,23 @@
+{
+    "name": "openbamz",
+    "version": "0.0.1",
+    "description": "OpenBamz",
+    "scripts": {
+        "start": "nodejs src/server.js",
+        "debug": "nodemon --watch src --ext js,html,json,sql --nolazy --exec 'kill-port -k 5858/tcp; node --inspect=0.0.0.0:5858 src/index.js'"
+    },
+    "author": "Bakino",
+    "private": true,
+    "devDependencies": {
+        "eslint": "^9.7.0",
+        "kill-port": "^2.0.1",
+        "nodemon": "^3.1.4"
+    },
+    "dependencies": {
+        "express": "^4.19.2",
+        "fs-extra": "^11.2.0",
+        "graphile-worker": "^0.16.6",
+        "postgraphile": "^5.0.0-beta.28",
+        "winston": "^3.13.1"
+    }
+}
