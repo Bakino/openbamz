@@ -28,7 +28,7 @@ async function prepare() {
 
         //Start workers
         startWorkers(mainDatabaseConnectionOptions).catch((err) => {
-            logger.error(err);
+            logger.warn(err);
             process.exit(1);
         });
     } catch (err) {

@@ -8,7 +8,7 @@ const mainDbPreset = {
     extends: [PostGraphileAmberPreset, PgLazyJWTPreset],
     pgServices: [makePgService({ 
         connectionString: `postgres://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`,
-        schemas: ["public", "private"],
+        schemas: ["public"],
     })],
     gather: {
         pgJwtTypes: "public.jwt_token",
@@ -40,7 +40,9 @@ function createAppPreset(options){
     return {
         extends: [PostGraphileAmberPreset, PgLazyJWTPreset],
         pgServices: [makePgService({ 
-            connectionString: `postgres://${options.user}:${options.password}@${options.host}:${options.port}/${options.database}`,
+            //connectionString: `postgres://${options.user}:${options.password}@${options.host}:${options.port}/${options.database}`,
+            //connection must be done with super user because database user does not have to switch to role of secondary admin that are not db owner
+            connectionString: `postgres://${options.superuser}:${options.superpassword}@${options.host}:${options.port}/${options.database}`,
             superuserConnectionString: `postgres://${options.superuser}:${options.superpassword}@${options.host}:${options.port}/${options.database}`,
             schemas: ["public"],
         })],

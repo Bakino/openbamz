@@ -23,7 +23,8 @@ CREATE SCHEMA IF NOT EXISTS private;
 CREATE TABLE IF NOT EXISTS private.account (
     _id uuid primary key DEFAULT gen_random_uuid(),
     create_time timestamp without time zone DEFAULT now(),
-    email varchar(512),
+    email varchar(512) UNIQUE,
+    name varchar(128),
     role varchar(128),
     password varchar(512),
     password_hash varchar(512)
@@ -32,19 +33,18 @@ CREATE TABLE IF NOT EXISTS private.account (
 -- trigger on create account, create the database user and crypt login password
 CREATE OR REPLACE FUNCTION account_create_user() RETURNS TRIGGER AS
 $$
-
+    //generate the password for database user
     let result = plv8.execute(`SELECT gen_random_uuid() as uuidpass`);
     plv8.execute(`CREATE USER "${NEW._id}"  WITH PASSWORD '${result[0].uuidpass}'`);
     let dbpass = result[0].uuidpass ;
+
+    //grant the role to the database user
     plv8.execute(`GRANT "${NEW.role}" TO "${NEW._id}"`)
 
-
+    //crypt the password
     result = plv8.execute(`SELECT crypt($1, gen_salt('md5')) as crypted`, [NEW.password]);
     NEW.password_hash = result[0].crypted ;
     NEW.password = dbpass ;
-
-
-    plv8.elog(NOTICE, "new user created");
 
     return NEW;
 $$
@@ -59,10 +59,7 @@ CREATE OR REPLACE TRIGGER account_create_user
 -- trigger on delete account, drop the database user
 CREATE OR REPLACE FUNCTION account_drop_user() RETURNS TRIGGER AS
 $$
-
     plv8.execute(`DROP USER "${OLD._id}"`);
-
-    plv8.elog(NOTICE, "user deleted");
 $$
 LANGUAGE "plv8";
 
@@ -85,7 +82,7 @@ create type public.jwt_token as (
 );
 
 -- function authenticate
-create function public.authenticate(
+create or replace function public.authenticate(
   email text,
   password text
 )
@@ -112,15 +109,20 @@ end;
 $$ language plpgsql strict security definer;
 
 -- function authenticate
-create function public.create_account(
+create or replace function public.create_account(
   email text,
+  name text,
   password text
 )
-returns public.jwt_token
+returns private.account
 as $$
+DECLARE
+   result private.account;
 begin
-  insert into private.account(email, password, role) values (email, password, 'normal_user');
-  return null;
+  insert into private.account(email, name, password, role) values (email, name, password, 'normal_user') returning * INTO result;
+  result.password = '';
+  result.password_hash = '';
+  return result;
 end;
 $$ language plpgsql strict security definer;
 
@@ -135,7 +137,8 @@ $$ language sql stable;
 CREATE TABLE IF NOT EXISTS public.app(
   code VARCHAR(64) PRIMARY KEY,
   name VARCHAR(64),
-  owner UUID NOT NULL,
+  owner UUID,
+  admins JSONB NOT NULL DEFAULT '[]'::jsonb, -- [ { _id, email, name }, ... ]
   FOREIGN KEY(owner) 
        REFERENCES private.account(_id)
        ON DELETE CASCADE
@@ -149,10 +152,13 @@ DROP POLICY  IF EXISTS  update_app ON public.app;
 DROP POLICY  IF EXISTS  delete_app ON public.app;
 DROP POLICY  IF EXISTS  insert_app ON public.app;
 
+-- owner and admins can read the record
 create policy select_app on public.app for select to normal_user
-  using (owner::varchar = nullif(current_setting('role', true), ''));
+  using (owner::varchar = nullif(current_setting('role', true), '') OR admins @> ('[{"_id":"'||nullif(current_setting('role', true), '')||'"}]')::jsonb);
+-- only owner can update
 create policy update_app on public.app for update to normal_user
   using (owner::varchar = nullif(current_setting('role', true), ''));
+-- only owner can delete
 create policy delete_app on public.app for delete to normal_user
   using (owner::varchar = nullif(current_setting('role', true), ''));
 create policy insert_app on public.app for insert to normal_user
@@ -166,14 +172,7 @@ $$
     let result = plv8.execute(`SELECT current_setting('role') as role`);
     NEW.owner = result[0].role ; // force owner to current user
 
-    plv8.elog(WARNING, "VAR current_user?? "+JSON.stringify(result));
-   //  result = plv8.execute(`select current_setting('jwt.claims.email', true);`);
-     result = plv8.execute(`SELECT session_user`);
-    plv8.elog(WARNING, "VAR session_user?? "+JSON.stringify(result));
-
     plv8.execute(`SELECT graphile_worker.add_job('createDatabase', json_build_object('database', '${NEW.code}'))`);
-
-    plv8.elog(NOTICE, "new database created");
 
     return NEW;
 $$
@@ -183,6 +182,65 @@ CREATE OR REPLACE TRIGGER app_create_database
     BEFORE INSERT
     ON app FOR EACH ROW
     EXECUTE PROCEDURE app_create_database();
+
+
+-- trigger, on create or update application, update admins ids
+CREATE OR REPLACE FUNCTION app_update_admins() RETURNS TRIGGER AS
+$$
+
+    for(let admin of NEW.admins){
+      let results = plv8.execute("SELECT _id, name FROM private.account WHERE email = $1", [admin.email]) ;
+      if(results[0]){
+        admin._id = results[0]._id;
+        admin.name = results[0].name;
+      }else{
+        delete admin._id;
+      }
+    }
+
+    NEW.admins = NEW.admins.filter(a=>a._id) ;
+    
+
+    return NEW;
+$$
+LANGUAGE "plv8" SECURITY DEFINER;
+
+CREATE OR REPLACE TRIGGER app_update_admins
+    BEFORE INSERT OR UPDATE
+    ON app FOR EACH ROW
+    EXECUTE PROCEDURE app_update_admins();
+
+
+
+-- trigger, on create or update application, update permissions
+CREATE OR REPLACE FUNCTION app_update_permissions() RETURNS TRIGGER AS
+$$
+
+    let previousAdminIds = [];
+    if(OLD){
+      previousAdminIds = OLD.admins.map(a=>a._id) ;
+    }
+    let newAdminsIds = NEW.admins.map(a=>a._id) ;
+
+    let adminToRemove = previousAdminIds.filter(a=>!newAdminsIds.includes(a));
+    let adminToAdd = newAdminsIds.filter(a=>!previousAdminIds.includes(a));
+
+    let dbRole = NEW.code+"_role";
+    for(let admin of adminToRemove){
+      plv8.execute(`REVOKE "${dbRole}" FROM "${admin}"`);
+    }
+    for(let admin of adminToAdd){
+      plv8.execute(`GRANT "${dbRole}" TO "${admin}"`);
+    }
+
+    return NEW;
+$$
+LANGUAGE "plv8" SECURITY DEFINER;
+
+CREATE OR REPLACE TRIGGER app_update_permissions
+    AFTER INSERT OR UPDATE
+    ON app FOR EACH ROW
+    EXECUTE PROCEDURE app_update_permissions();
 
 
 -- trigger, on delete application, delete the database

@@ -107,7 +107,7 @@ async function prepareMainRoles(options, schemaName){
         await client.query(`GRANT ALL PRIVILEGES ON DATABASE ${options.database} TO ${roleAdmin}`)
 
 
-        for(let schemaName of ["graphile_worker", "public", "private"]){
+        for(let schemaName of [ "public", "private"]){
             await client.query(`GRANT ALL PRIVILEGES ON SCHEMA ${schemaName} TO ${roleAdmin}`)
             await client.query(`GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA ${schemaName} TO ${roleAdmin}`)
     
