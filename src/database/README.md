@@ -65,7 +65,8 @@ The app table is readable only by user authenticated.
 A user can read only the app which he is the owner or admin
 Only owner can update or delete an app
 
-When an app is created, the corresponding database is created with a role `dbname_role` that can access everything in the database
+When an app is created, the corresponding database is created with a role `dbname_admin` that can access everything in the database
+It also add `dbname_user` that can access all public tables and `dbname_readonly` that can only read in public tables
 
 The owner and admins are granted with this role.
 

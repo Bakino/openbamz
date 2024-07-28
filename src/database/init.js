@@ -151,7 +151,7 @@ async function prepareRole(options, account){
     try{
         await client.connect();
 
-        let role = options.database+"_role";
+        let role = options.database+"_admin";
         let result = await client.query("SELECT 1 FROM pg_catalog.pg_roles WHERE rolname =  $1", [role]);
         if(result.rows.length === 0){
             logger.info(`create ROLE ${role}`);
@@ -179,6 +179,50 @@ async function prepareRole(options, account){
         await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO ${role}`)
         await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO ${role}`)
         await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO ${role}`)
+
+        let roleUser = options.database+"_user";
+        result = await client.query("SELECT 1 FROM pg_catalog.pg_roles WHERE rolname =  $1", [roleUser]);
+        if(result.rows.length === 0){
+            logger.info(`create ROLE ${roleUser}`);
+            await client.query(`CREATE ROLE ${roleUser}
+                NOSUPERUSER
+                NOCREATEDB
+                NOCREATEROLE
+                NOREPLICATION;`)
+        } 
+
+        await client.query(`GRANT SELECT, UPDATE, INSERT, DELETE ON ALL TABLES IN SCHEMA public TO ${roleUser}`)
+        await client.query(`GRANT SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO ${roleUser}`)
+        await client.query(`GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO ${roleUser}`)
+        await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, UPDATE, INSERT, DELETE ON TABLES TO ${roleUser}`)
+        await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, UPDATE ON SEQUENCES TO ${roleUser}`)
+        await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO ${roleUser}`)
+        await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT, UPDATE, INSERT, DELETE ON TABLES TO ${roleUser}`)
+        await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT, UPDATE, INSERT, DELETE ON TABLES TO ${roleUser}`)
+        await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT, UPDATE ON SEQUENCES TO ${roleUser}`)
+        await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE ${role} IN SCHEMA public GRANT SELECT, UPDATE ON SEQUENCES TO ${roleUser}`)
+        await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE ${role} IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO ${roleUser}`)
+        await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE ${role} IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO ${roleUser}`)
+
+
+        let roleReadonly = options.database+"_readonly";
+        result = await client.query("SELECT 1 FROM pg_catalog.pg_roles WHERE rolname =  $1", [roleReadonly]);
+        if(result.rows.length === 0){
+            logger.info(`create ROLE ${roleReadonly}`);
+            await client.query(`CREATE ROLE ${roleReadonly}
+                NOSUPERUSER
+                NOCREATEDB
+                NOCREATEROLE
+                NOREPLICATION;`)
+        } 
+
+        await client.query(`GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${roleReadonly}`)
+
+        await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO ${roleReadonly}`)
+        await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT ON TABLES TO ${roleReadonly}`)
+        await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE ${role} IN SCHEMA public GRANT SELECT ON TABLES TO ${roleReadonly}`)
+        
+
 
         logger.info("Finish GRANT");
     }finally{

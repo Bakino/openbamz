@@ -126,10 +126,28 @@ begin
 end;
 $$ language plpgsql strict security definer;
 
+create or replace function public.delete_account(
+  email text
+)
+returns void as
+$$
 
-create or replace function current_user_id() returns integer as $$
-  select nullif(current_setting('jwt.claims.user_id', true), '')::integer;
-$$ language sql stable;
+    let result = plv8.execute(`SELECT * FROM private.account WHERE email = $1`, [email]);
+    let account = result[0]
+    if(!account){
+      throw "Unkown account "+email ;
+    }
+    let resultRole = plv8.execute(`SELECT current_setting('role') as role`);
+    if(resultRole[0] !== account._id){
+      throw "Only owner of account can delete it" ;
+    }
+    
+    plv8.execute(`DELETE FROM private.account WHERE _id = $1`, [account._id]);
+
+    return NEW;
+$$
+LANGUAGE "plv8" SECURITY DEFINER;
+
 
 ------- Application management --------
 ---------------------------------------
@@ -225,7 +243,7 @@ $$
     let adminToRemove = previousAdminIds.filter(a=>!newAdminsIds.includes(a));
     let adminToAdd = newAdminsIds.filter(a=>!previousAdminIds.includes(a));
 
-    let dbRole = NEW.code+"_role";
+    let dbRole = NEW.code+"_admin";
     for(let admin of adminToRemove){
       plv8.execute(`REVOKE "${dbRole}" FROM "${admin}"`);
     }

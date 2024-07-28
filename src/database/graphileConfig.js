@@ -1,5 +1,7 @@
 const { PostGraphileAmberPreset } = require("postgraphile/presets/amber");
 const { PgLazyJWTPreset } = require("postgraphile/presets/lazy-jwt");
+//const { defaultMaskError } = require("postgraphile/grafserv");
+
 
 const { makePgService } = require("postgraphile/adaptors/pg");
 
@@ -17,7 +19,7 @@ const mainDbPreset = {
         watch: true,
         graphqlPath: `/graphql/${process.env.DB_NAME}`,
         graphiqlPath: `/graphiql/${process.env.DB_NAME}`,
-        eventStreamPath: `/graphql/${process.env.DB_NAME}/stream`
+        eventStreamPath: `/graphql/${process.env.DB_NAME}/stream`,
     },
     schema: {
         pgJwtSecret: process.env.JWT_SECRET,
@@ -51,6 +53,12 @@ function createAppPreset(options){
             graphqlPath: `/graphql/${options.database}`,
             graphiqlPath: `/graphiql/${options.database}`,
             eventStreamPath: `/graphql/${options.database}/stream`,
+            maskError(error) {
+              //const masked = defaultMaskError(error);
+              //don't mask error to help admin fix there bug
+              //TODO: should it be done depending on user ? or create hash and save it in private log table ? 
+              return error;
+            },
         },
         schema: {
             pgJwtSecret: process.env.JWT_SECRET,

@@ -10,8 +10,8 @@
             "name": "Attach to Docker",
             "port": 5858,
             "restart": true,
-            "localRoot": "${workspaceFolder}/server",
-            "remoteRoot": "${workspaceFolder}/server",
+            "localRoot": "${workspaceFolder}",
+            "remoteRoot": "${workspaceFolder}",
             "timeout": 20000
         }
     ]
