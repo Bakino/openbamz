@@ -49,7 +49,7 @@ async function prepareSchema(options, schemaName){
     }
 }
 
-async function prepareMainRoles(options, schemaName){
+async function prepareMainRoles(options){
     const client = new Client(options) ;
     try{
         await client.connect();
@@ -146,6 +146,44 @@ async function getConnectionInfo(options, database){
     }
 }
 
+async function preparePlugins(options){
+    const client = new Client(options) ;
+    try{
+        await client.connect();
+
+        let result = await client.query(`SELECT * FROM openbamz.plugins`);
+        let plugins = result.rows ;
+
+        for(let pluginName of plugins){
+            let plugin = require("../plugins/"+pluginName+"/index.js") ;
+            await plugin.prepareDatabase({client});
+        }
+    }finally{
+        client.end() ;
+    }
+}
+
+async function addPlugin(options, pluginName){
+    const client = new Client(options) ;
+    try{
+        await client.connect();
+        let plugin = require("../plugins/"+pluginName+"/index.js") ;
+        await plugin.prepareDatabase({client});
+    }finally{
+        client.end() ;
+    }
+}
+async function removePlugin(options, pluginName){
+    const client = new Client(options) ;
+    try{
+        await client.connect();
+        let plugin = require("../plugins/"+pluginName+"/index.js") ;
+        await plugin.cleanDatabase({client});
+    }finally{
+        client.end() ;
+    }
+}
+
 async function prepareRole(options, account){
     const client = new Client(options) ;
     try{
@@ -167,18 +205,22 @@ async function prepareRole(options, account){
         await client.query(`GRANT ALL PRIVILEGES ON DATABASE ${options.database} TO ${role}`)
 
 
-        await client.query(`GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO ${role}`)
+        for(let schemaName of [ "public", "openbamz"]){
+            await client.query(`GRANT ALL PRIVILEGES ON SCHEMA ${schemaName} TO ${role}`)
 
-        await client.query(`GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO ${role}`)
-
-        await client.query(`GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO ${role}`)
-
-        await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO ${role}`)
-        await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO ${role}`)
-        await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO ${role}`)
-        await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO ${role}`)
-        await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO ${role}`)
-        await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO ${role}`)
+            await client.query(`GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA ${schemaName} TO ${role}`)
+    
+            await client.query(`GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA ${schemaName} TO ${role}`)
+    
+            await client.query(`GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA ${schemaName} TO ${role}`)
+    
+            await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA ${schemaName} GRANT ALL ON TABLES TO ${role}`)
+            await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA ${schemaName} GRANT ALL ON SEQUENCES TO ${role}`)
+            await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA ${schemaName} GRANT ALL ON FUNCTIONS TO ${role}`)
+            await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA ${schemaName} GRANT ALL ON TABLES TO ${role}`)
+            await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA ${schemaName} GRANT ALL ON SEQUENCES TO ${role}`)
+            await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA ${schemaName} GRANT ALL ON FUNCTIONS TO ${role}`)
+        }
 
         let roleUser = options.database+"_user";
         result = await client.query("SELECT 1 FROM pg_catalog.pg_roles WHERE rolname =  $1", [roleUser]);
@@ -236,8 +278,8 @@ async function startWorkers(options) {
   const runner = await run({
     connectionString: `postgres://${options.user}:${options.password}@${options.host}:${options.port}/${options.database}`,
     concurrency: 5,
-    logger: new Logger((scope)=>{
-        return (level, message, meta)=>{
+    logger: new Logger((/*scope*/)=>{
+        return (level, message/*, meta*/)=>{
             if(level === "warning"){ level = "warn" ;}
             logger.log({level, message})
         }
@@ -281,3 +323,6 @@ module.exports.prepareRole = prepareRole;
 module.exports.getConnectionInfo = getConnectionInfo;
 module.exports.prepareAppDirectory = prepareAppDirectory;
 module.exports.deleteAppDirectory = deleteAppDirectory;
+module.exports.preparePlugins = preparePlugins;
+module.exports.addPlugin = addPlugin;
+module.exports.removePlugin = removePlugin;

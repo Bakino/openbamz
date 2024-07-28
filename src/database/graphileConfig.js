@@ -46,7 +46,7 @@ function createAppPreset(options){
             //connection must be done with super user because database user does not have to switch to role of secondary admin that are not db owner
             connectionString: `postgres://${options.superuser}:${options.superpassword}@${options.host}:${options.port}/${options.database}`,
             superuserConnectionString: `postgres://${options.superuser}:${options.superpassword}@${options.host}:${options.port}/${options.database}`,
-            schemas: ["public"],
+            schemas: ["public", "openbamz"],
         })],
         grafserv: { 
             watch: true,

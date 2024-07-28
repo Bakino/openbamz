@@ -1,0 +1,37 @@
+<html>
+    <head>
+        <script src="/openbamz/js/openbamz_helpers.js"></script>
+
+        <script>
+            window.addEventListener("load", ()=>{
+                document.getElementById("run", async()=>{
+                    let query = document.getElementById("query").value;
+                    try{
+                        let result = await window.openbamz.queryGraphql(`mutation runquery {
+                            runQuery(
+                                input: {query: "${query.replace(/\"/g, "\\\"")}"}
+                            ) {
+                                result
+                            }
+                            }`, "_openbamz");
+                        document.getElementById("result").value = JSON.stringify(result.data.runQuery.result);
+                    }catch(error){
+                        console.error(error);
+                        document.getElementById("result").value = JSON.stringify(error);
+                    }
+                })
+            })
+        </script>
+    </head>
+    <body>
+        <textarea id="query">
+
+        </textarea>
+        <div>
+            <button type="button" id="run">RUN</button>
+        </div>
+        <textarea id="result">
+
+        </textarea>
+    </body>
+</html>

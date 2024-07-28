@@ -1,0 +1,135 @@
+<html>
+    <head>
+        <script src="/openbamz/js/openbamz_helpers.js"></script>
+        <script>
+            window.addEventListener("load", ()=>{
+                document.getElementById("create-account").addEventListener("click", async ()=>{
+                    let email = document.getElementById("create-email").value;
+                    let password = document.getElementById("create-password").value;
+                    let name = document.getElementById("create-name").value;
+                    await window.openbamz.createAccount(email, password, name)
+                });
+                document.getElementById("login-bt").addEventListener("click", async ()=>{
+                    let email = document.getElementById("login-email").value;
+                    let password = document.getElementById("login-password").value;
+                    let success = await window.openbamz.authenticate(email, password)
+                    if(success){ 
+                        window.alert('OK')
+                    }else{
+                        window.alert('Error !')
+                    }
+                });
+                document.getElementById("refresh-bt").addEventListener("click", async ()=>{
+                    let success = await window.openbamz.refreshAuth()
+                    if(success){ 
+                        window.alert('OK')
+                    }else{
+                        window.alert('Error !')
+                    }
+                });
+                document.getElementById("logout-bt").addEventListener("click", async ()=>{
+                    window.openbamz.logout()
+                });
+                document.getElementById("create-app").addEventListener("click", async ()=>{
+                    let code = document.getElementById("create-app-code").value;
+                    let name = document.getElementById("create-app-name").value;
+                    await window.openbamz.queryGraphql(`mutation createapp {
+  createApp(
+    input: {app: {code: "${code}", name: "${name}"}}
+  ) {
+    clientMutationId
+  }
+}`, "_openbamz");
+                });
+                document.getElementById("list-app-bt").addEventListener("click", async ()=>{
+                    let listApp = document.getElementById("list-app");
+                    listApp.innerHTML = "loading...";
+                    let result = await window.openbamz.queryGraphql(`query listapps {
+  allApps {
+    nodes {
+      code
+      id
+      name
+      owner
+      admins
+    }
+  }
+}`, "_openbamz");
+                    listApp.innerHTML = "";
+                    for(let app of result.data.allApps.nodes){
+                        listApp.innerHTML += `<li><a target="_blank" href="/app/${app.code}">${app.name} (${app.code})</a></li>`;
+                    }
+                    
+                });
+            }) ;
+        </script>
+        <title>OpenBamz</title>
+    </head>
+    <body>
+        <fieldset>
+            <legend>Create account</legend>
+            <div>
+                <label for="create-email">E-mail</label>
+                <input type="text" id="create-email" />
+            </div>
+            <div>
+                <label for="create-name">Name</label>
+                <input type="text" id="create-name" />
+            </div>
+            <div>
+                <label for="create-password">Password</label>
+                <input type="password" id="create-password" />
+            </div>
+            <div>
+                <button type="button" id="create-account">Create account</button>
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <legend>Login</legend>
+            <div>
+                <label for="login-email">E-mail</label>
+                <input type="text" id="login-email" />
+            </div>
+            <div>
+                <label for="login-password">Password</label>
+                <input type="password" id="login-password" />
+            </div>
+            <div>
+                <button type="button" id="login-bt">Login</button>
+            </div>
+            <div>
+                <button type="button" id="refresh-bt">Refresh token</button>
+            </div>
+            <div>
+                <button type="button" id="logout-bt">logout</button>
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <legend>Create app</legend>
+            <div>
+                <label for="create-app-code">Code</label>
+                <input type="text" id="create-app-code" />
+            </div>
+            <div>
+                <label for="create-app-name">Name</label>
+                <input type="text" id="create-app-name" />
+            </div>
+            <div>
+                <button type="button" id="create-app">Create app</button>
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <legend>Lists apps</legend>
+            <div>
+                <button type="button" id="list-app-bt">List apps</button>
+            </div>
+            <ul id="list-app">
+
+            </ul>
+        </fieldset>
+
+    </body>
+</html>

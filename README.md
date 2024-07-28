@@ -4,5 +4,5 @@ Open Bamz
 
 todo
 
-create account / jwt / user rights on main db
-
+fix user right => anonymous should not be able to call function on public (plugin basic)
+how to know database in plugin HTML

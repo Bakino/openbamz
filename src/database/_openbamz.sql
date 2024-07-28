@@ -108,7 +108,37 @@ begin
 end;
 $$ language plpgsql strict security definer;
 
--- function authenticate
+--refresh JWT token (get account from current token and create a new one)
+create or replace function public.refresh_auth()
+returns public.jwt_token
+as $$
+declare
+  account private.account;
+begin
+
+  --RAISE WARNING 'ROLE ????(%)', current_setting('role', true);
+
+  select a.* into account
+    from private.account as a
+    where a._id::varchar = current_setting('role', true)::varchar;
+
+
+  --RAISE WARNING 'ACCOUNT ????(%)', account._id;
+
+  if account._id is not null then
+    return (
+      account._id,
+      extract(epoch from now() + interval '7 days'),
+      account._id,
+      account.email
+    )::public.jwt_token;
+  else
+    return null;
+  end if;
+end;
+$$ language plpgsql strict security definer;
+
+-- function create account
 create or replace function public.create_account(
   email text,
   name text,
