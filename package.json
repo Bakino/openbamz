@@ -3,7 +3,7 @@
     "version": "0.0.1",
     "description": "OpenBamz",
     "scripts": {
-        "start": "nodejs src/server.js",
+        "start": "nodejs src/index.js",
         "debug": "nodemon --watch src --ext js,html,json,sql --nolazy --exec 'kill-port -k 5858/tcp; node --inspect=0.0.0.0:5858 src/index.js'"
     },
     "author": "Bakino",

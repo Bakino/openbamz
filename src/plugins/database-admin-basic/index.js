@@ -15,10 +15,11 @@ module.exports.cleanDatabase = async ({client})=>{
 }
 
 
-const express = require("express");
-const path = require("path");
-
-module.exports.initPlugin = async ({app})=>{
-    app.use("/plugin/database-admin-basic/", express.static(path.join(__dirname, "html") ));
-
+module.exports.initPlugin = async ({addToMenu})=>{
+    //add link to top menu
+    addToMenu("admin", "database admin", "/plugin/:appName/database-admin-basic/") ;
+    return {
+        // path in which the plugin provide its front end files
+        frontEndPath: "html"
+    }
 }

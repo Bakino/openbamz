@@ -6,6 +6,7 @@ const { createIfNotExist, prepareSchema,prepareMainRoles, startWorkers, getConne
 const { createServer } = require("node:http");
 const { Client } = require('pg');
 const { initPlugins } = require("./pluginManager");
+const { readFile } = require("fs/promises");
 
 process.env.GRAPHILE_ENV = process.env.PROD_ENV 
 
@@ -50,7 +51,89 @@ async function start() {
     const app = express()
     const port = 3000
 
-    initPlugins({app}) ;
+    const adminMenu = [
+       /* { name: "admin", entries: [
+            { name: "database", link: "/database" },
+            { name: "sources", link: "/sources" }
+        ] },
+        { name: "settings", entries: [
+            { name: "main", link: "/mainsettings" },
+            { name: "profile", link: "/profile" }
+        ] }*/
+    ];
+    function addToMenu(menuName, entryName, link){
+        let menuEntry = adminMenu.find(m=>m.name === menuName) ;
+        if(!menuEntry){
+            menuEntry = {
+                name: menuName,
+                entries : []
+            };
+            adminMenu.push(menuEntry) ;
+        }
+        menuEntry.entries.push({ name: entryName, link }) ;
+    }
+
+    // Middleware to modify HTML content
+    app.use(["/app/*", "/plugin/*"],(req, res, next) => {
+        //FIXME: refactor appName extraction
+        let appName = req.baseUrl.replace(/^\/plugin\//, "").replace(/^\/app\/{0,1}/, "") ; ;
+        let slashIndex = appName.indexOf("/");
+        if(slashIndex !== -1){
+            appName = appName.substring(0, slashIndex) ;
+        }
+        if(appName && appName !== process.env.DB_NAME){
+            if (req.url.toLowerCase().endsWith('.html') || req.url.endsWith('/') ) {
+                //'/app/plug/plugin/database-admin-basic'
+                let relativePath = null;
+                let basePath = null; 
+                if(req.baseUrl.startsWith("/app")){
+                    //file in app sources
+                    relativePath = req.baseUrl.replace(`/app/${appName}`, '').replace(/^\//, "");;
+                    basePath = path.join(process.env.DATA_DIR, "apps" ,appName);
+                }else{
+                    //file in plugin
+                    let pluginName = req.baseUrl.replace(/^\/plugin\//, "").replace(/^\/app\//, "").replace(appName, "") .replace(/^\//, ""); 
+                    let slashIndex = pluginName.indexOf("/");
+                    if(slashIndex !== -1){
+                        pluginName = pluginName.substring(0, slashIndex) ;
+                    }
+                    //get base path from plugins data
+                    basePath = pluginsData[pluginName]?.frontEndFullPath
+                    relativePath = req.baseUrl.replace(`/plugin/${appName}/${pluginName}`, '');
+                }
+                if(!basePath){
+                    //no base path, maybe try to load a plugin that does not exists anymore
+                    return next() ;
+                }
+                let filePath = path.join(basePath, relativePath);
+                if(req.url.endsWith('/')){
+                    filePath = path.join(filePath, "index.html") ;
+                }
+                
+                fs.readFile(filePath, 'utf8', (err, data) => {
+                    if (err) { 
+                        //error reading file, continue with standard
+                        return next(); 
+                    }
+                    
+                    // Modify HTML content here
+                    let modifiedHtml = data;
+                    // Example modification: Inject a script tag
+                    modifiedHtml = modifiedHtml.replace('<body>', `<body><script src="/_openbamz_admin.js?appName=${appName}"></script>`);
+                    
+                
+                    res.setHeader('Content-Type', 'text/html');
+                    res.end(modifiedHtml);
+                });
+            } else {
+                next();
+            }
+        }else{
+            next() ;
+        }
+    });
+
+    let pluginsData = await initPlugins({app, adminMenu, addToMenu}) ;
 
     const graphServers = {} ;
 
@@ -71,10 +154,13 @@ async function start() {
             try{
                 await client.connect();
                 //let results = await client.query("SELECT * FROM openbamz.plugins");        
-                
+                let jsSource = await readFile(path.join(__dirname, "menu-front", "adminMenu.js"), {encoding: "utf8"}) ;
                 res.end(`
 //script for ${req.query.appName}
 window.OPENBAMZ_APP = '${req.query.appName}' ;
+let adminMenu = ${JSON.stringify(adminMenu)} ;
+
+${jsSource}
                 `)
             }finally{
                 client.end() ;
@@ -117,27 +203,7 @@ window.OPENBAMZ_APP = '${req.query.appName}' ;
                 });   
 
 
-                // Middleware to modify HTML content
-                app.use("/app/"+appName,(req, res, next) => {
-                    if (req.url.toLowerCase().endsWith('.html')) {
-                        const filePath = path.join(process.env.DATA_DIR, "apps" ,appName, req.url);
-                        
-                        fs.readFile(filePath, 'utf8', (err, data) => {
-                            if (err) { return next(err); }
-                            
-                            // Modify HTML content here
-                            let modifiedHtml = data;
-                            // Example modification: Inject a script tag
-                            modifiedHtml = modifiedHtml.replace('<body>', `<body><script src="/_openbamz_admin.js?appName=${appName}"></script>`);
-                            
-                        
-                            res.setHeader('Content-Type', 'text/html');
-                            res.end(modifiedHtml);
-                        });
-                    } else {
-                        next();
-                    }
-                });
+                
                 app.use("/app/"+appName, express.static(path.join(process.env.DATA_DIR, "apps" ,appName) ));
             }).catch(err=>{
                 logger.error(`Error while get account information of database ${appName} %o`, err) ;
