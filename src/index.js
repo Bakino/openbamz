@@ -4,9 +4,7 @@ const path = require("path");
 const fs = require("fs");
 const { createIfNotExist, prepareSchema,prepareMainRoles, startWorkers, getConnectionInfo, preparePlugins } = require("./database/init");
 const { createServer } = require("node:http");
-const { Client } = require('pg');
-const { initPlugins } = require("./pluginManager");
-const { readFile } = require("fs/promises");
+const { initPlugins, middlewareMenuJS } = require("./pluginManager");
 
 process.env.GRAPHILE_ENV = process.env.PROD_ENV 
 
@@ -50,28 +48,6 @@ async function start() {
 
     const app = express()
     const port = 3000
-
-    const adminMenu = [
-       /* { name: "admin", entries: [
-            { name: "database", link: "/database" },
-            { name: "sources", link: "/sources" }
-        ] },
-        { name: "settings", entries: [
-            { name: "main", link: "/mainsettings" },
-            { name: "profile", link: "/profile" }
-        ] }*/
-    ];
-    function addToMenu(menuName, entryName, link){
-        let menuEntry = adminMenu.find(m=>m.name === menuName) ;
-        if(!menuEntry){
-            menuEntry = {
-                name: menuName,
-                entries : []
-            };
-            adminMenu.push(menuEntry) ;
-        }
-        menuEntry.entries.push({ name: entryName, link }) ;
-    }
 
     // Middleware to modify HTML content
     app.use(["/app/*", "/plugin/*"],(req, res, next) => {
@@ -133,40 +109,14 @@ async function start() {
         }
     });
 
-    let pluginsData = await initPlugins({app, adminMenu, addToMenu}) ;
+    let pluginsData = await initPlugins({app}) ;
 
     const graphServers = {} ;
 
     app.use("/openbamz/", express.static(path.join(__dirname, "openbamz-front") ));
 
 
-    app.get("/_openbamz_admin.js", (req, res)=>{
-        (async ()=>{
-            let appName = req.query.appName ;
-            let options = {
-                user: process.env.DB_USER,
-                password: process.env.DB_PASSWORD,
-                host: process.env.DB_HOST,
-                port: process.env.DB_PORT,
-                database: appName
-            }; 
-            const client = new Client(options) ;
-            try{
-                await client.connect();
-                //let results = await client.query("SELECT * FROM openbamz.plugins");        
-                let jsSource = await readFile(path.join(__dirname, "menu-front", "adminMenu.js"), {encoding: "utf8"}) ;
-                res.end(`
-//script for ${req.query.appName}
-window.OPENBAMZ_APP = '${req.query.appName}' ;
-let adminMenu = ${JSON.stringify(adminMenu)} ;
-
-${jsSource}
-                `)
-            }finally{
-                client.end() ;
-            }
-        })() ;
-    })
+    app.get("/_openbamz_admin.js", middlewareMenuJS);
 
     app.use(["/graphql/*", "/graphiql/*", "/app/*"], (req, res, next)=>{
         // initialize graphql and static files serve

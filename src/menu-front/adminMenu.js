@@ -1,6 +1,34 @@
 /*global adminMenu*/
 
 
+async function isAdmin(){
+    let jwt = localStorage.getItem("openbamz-jwt") ;
+    if(!jwt){ return false ; }
+       
+    let result = await fetch("/graphql/_openbamz", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: "Bearer "+jwt
+        },
+        body: JSON.stringify({ query: `query getapp {
+  appByCode(code: "${window.OPENBAMZ_APP}") {
+    code
+  }
+}`     }),
+    }) ;
+    let response = await result.json();
+    return response?.data?.appByCode?.code === window.OPENBAMZ_APP ;
+}
+
+async function loadMenu(){
+    if(await  isAdmin()){
+        // Inject CSS styles and create the banner
+        injectStyles();
+        createBanner(adminMenu);
+    }
+}
 
 // Function to inject CSS styles into the document
 function injectStyles() {
@@ -8,14 +36,14 @@ function injectStyles() {
     style.textContent = `
 
         body {
-            padding-top: 30px;
+            padding-top: 31px;
         }
         /* Style for the banner container */
-        .banner {
+        .openbamz-banner {
             background-color: black;
             color: white;
             display: flex;
-            padding: 10px;
+            padding: 5px;
             white-space: nowrap;
             position: fixed;
             width: 100%;
@@ -25,19 +53,19 @@ function injectStyles() {
         }
 
         /* Style for each menu item */
-        .menu-item {
+        .openbamz-menu-item {
             margin-right: 20px;
             position: relative;
             cursor: pointer;
         }
 
-        .menu-item a {
+        .openbamz-menu-item a {
             color: white;
             text-decoration: none;
         }
 
         /* Style for submenu */
-        .submenu {
+        .openbamz-submenu {
             display: none;
             position: absolute;
             background-color: black;
@@ -47,58 +75,62 @@ function injectStyles() {
             white-space: nowrap;
         }
 
-        .menu-item:hover .submenu {
+        .openbamz-menu-item:hover .openbamz-submenu {
             display: block;
         }
 
-        .submenu a {
+        .openbamz-submenu a {
             color: white;
             text-decoration: none;
             display: block;
             padding: 5px 0;
         }
 
-        .submenu a:hover {
+        .openbamz-submenu a:hover {
             background-color: #333;
         }
     `;
     document.head.appendChild(style);
 }
 
+function renderLink(link){
+   return link.replaceAll(":appName", window.OPENBAMZ_APP);
+}
+
 // Function to create the banner
 function createBanner(menuData) {
     const banner = document.createElement('div');
-    banner.className = "banner"
+    banner.className = "openbamz-banner"
     document.body.appendChild(banner) ;
     
     menuData.forEach(menu => {
         // Create menu item
         const menuItem = document.createElement('div');
-        menuItem.className = 'menu-item';
+        menuItem.className = 'openbamz-menu-item';
 
         // Create link for the menu item
         const link = document.createElement('a');
-        link.href = '#'; // You might want to set this to '#' or the actual link
-        link.textContent = menu.name;
+        link.href = renderLink(menu.link??'#'); // You might want to set this to '#' or the actual link
+        link.innerHTML = menu.name;
         menuItem.appendChild(link);
 
-        // Create submenu
-        const submenu = document.createElement('div');
-        submenu.className = 'submenu';
-
-        // Add submenu entries
-        menu.entries.forEach(entry => {
-            const entryLink = document.createElement('a');
-            entryLink.href = entry.link.replaceAll(":appName", window.OPENBAMZ_APP);
-            entryLink.textContent = entry.name;
-            submenu.appendChild(entryLink);
-        });
-
-        menuItem.appendChild(submenu);
+        if(menu.entries){
+            // Create submenu
+            const submenu = document.createElement('div');
+            submenu.className = 'openbamz-submenu';
+    
+            // Add submenu entries
+            menu.entries.forEach(entry => {
+                const entryLink = document.createElement('a');
+                entryLink.href = renderLink(entry.link);
+                entryLink.textContent = entry.name;
+                submenu.appendChild(entryLink);
+            });
+    
+            menuItem.appendChild(submenu);
+        }
         banner.appendChild(menuItem);
     });
 }
 
-// Inject CSS styles and create the banner
-injectStyles();
-createBanner(adminMenu);
+loadMenu();

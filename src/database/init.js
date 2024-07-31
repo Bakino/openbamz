@@ -154,8 +154,8 @@ async function preparePlugins(options){
         let result = await client.query(`SELECT * FROM openbamz.plugins`);
         let plugins = result.rows ;
 
-        for(let pluginName of plugins){
-            let plugin = require("../plugins/"+pluginName+"/index.js") ;
+        for(let pluginRecord of plugins){
+            let plugin = require("../plugins/"+pluginRecord.plugin_id+"/index.js") ;
             await plugin.prepareDatabase({client});
         }
     }finally{

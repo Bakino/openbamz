@@ -5,7 +5,11 @@ const logger = winston.createLogger({
     level: 'info',
     format: 
         process.env.NODE_ENV === 'production'?
-        winston.format.json():winston.format.combine(
+        winston.format.combine(
+            winston.format.timestamp(),
+            winston.format.splat(),
+            winston.format.json()
+        ):winston.format.combine(
             winston.format.colorize(),
             winston.format.timestamp(),
             winston.format.align(),
