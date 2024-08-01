@@ -7,6 +7,7 @@
   width: 300px;
   border-right: 1px solid #ccc;
   overflow-y: auto;
+  position: relative;
 }
 
 #editor-section {
@@ -19,7 +20,7 @@
   flex-grow: 1;
 }
 
-#filter {
+#filter, #file-path {
   width: 100%;
   box-sizing: border-box;
   padding: 10px;
@@ -48,15 +49,25 @@
   color: #555;
 }
 
-#save-button {
+#save-button, #upload-button, #submit-upload {
   padding: 10px;
   border: none;
   background-color: #4CAF50;
   color: white;
   cursor: pointer;
+  margin-top: 5px;
 }
 
 #save-button:disabled {
   background-color: #ccc;
   cursor: not-allowed;
+}
+
+#upload-section {
+  padding: 10px;
+  background-color: #f0f0f0;
+}
+
+#editor-section.drag-over {
+  border: 2px dashed #0078d4;
 }

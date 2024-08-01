@@ -1,5 +1,6 @@
 const logger = require("./logger");
 const express = require("express");
+const bodyParser = require('body-parser')
 const path = require("path");
 const fs = require("fs");
 const { createIfNotExist, prepareSchema,prepareMainRoles, startWorkers, getConnectionInfo, preparePlugins } = require("./database/init");
@@ -49,6 +50,12 @@ async function start() {
     const app = express()
     const port = 3000
 
+    // parse application/x-www-form-urlencoded
+    app.use(bodyParser.urlencoded({ extended: false }))
+
+    // parse application/json
+    app.use(bodyParser.json())
+
     // Middleware to modify HTML content
     app.use(["/app/*", "/plugin/*"],(req, res, next) => {
         //FIXME: refactor appName extraction
@@ -58,7 +65,7 @@ async function start() {
             appName = appName.substring(0, slashIndex) ;
         }
         if(appName && appName !== process.env.DB_NAME){
-            if (req.url.toLowerCase().endsWith('.html') || req.url.endsWith('/') ) {
+            if (req.originalUrl.toLowerCase().endsWith('.html') || req.originalUrl.endsWith('/') ) {
                 //'/app/plug/plugin/database-admin-basic'
                 let relativePath = null;
                 let basePath = null; 

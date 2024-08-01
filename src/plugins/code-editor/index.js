@@ -1,7 +1,7 @@
-const { readdir, stat, readFile, writeFile } = require("fs/promises");
+const { readdir, stat, readFile, writeFile, mkdir } = require("fs/promises");
 const path = require("path");
-const express = require("express");
 const mime = require('mime-types');
+const multer = require('multer');
 
 module.exports.prepareDatabase = async ()=>{
    
@@ -50,19 +50,28 @@ module.exports.initPlugin = async ({app, logger})=>{
     });
     
     // Save File Content
-    app.post('/files/save', express.json(), (req, res) => {
+    // Configure multer to use memory storage
+    const storage = multer.memoryStorage();
+    const upload = multer({ storage: storage });
+    app.post('/files/save', upload.single('file'), (req, res) => {
         if(req.body.path.includes("..")){
             return res.status(500).end("Forbidden path "+req.body.path)
         }
         (async ()=>{
+
             const filePath = path.join(filesDirectory, req.body.path);
-            try{
-                writeFile(filePath, req.body.content) ;
-                
+
+            try {
+                // Ensure the target directory exists
+                await mkdir(path.dirname(filePath), { recursive: true });
+
+                // Write the file from memory buffer to the final destination
+                await writeFile(filePath, req.file.buffer);
+
                 res.send('File saved successfully');
-            }catch(err){
-                logger.warn(`Error reading file ${filePath} %o`, err)
-                res.status(500).send('Error reading file '+filePath);
+            } catch (err) {
+                console.warn(`Error writing file ${filePath} %o`, err);
+                res.status(500).send('Error writing file ' + filePath);
             }
         })();
         

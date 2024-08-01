@@ -16,6 +16,7 @@
         "nodemon": "^3.1.4"
     },
     "dependencies": {
+        "body-parser": "^1.20.2",
         "express": "^4.19.2",
         "fs-extra": "^11.2.0",
         "graphile-worker": "^0.16.6",
