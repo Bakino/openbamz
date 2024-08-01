@@ -101,7 +101,7 @@ async function saveCurrentFile() {
 
     let response = await doSave(currentContent, currentFilePath);
     if (response.ok) {
-        originalContent = content;
+        originalContent = currentContent;
         setModified(false);
         alert('File saved successfully.');
     } else {
