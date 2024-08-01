@@ -49,7 +49,7 @@
   color: #555;
 }
 
-#save-button, #upload-button, #submit-upload {
+#save-button, #upload-button, #submit-upload, #download-button, #select-dir {
   padding: 10px;
   border: none;
   background-color: #4CAF50;

@@ -3,6 +3,7 @@ const path = require("path");
 const mime = require('mime-types');
 const multer = require('multer');
 const express = require('express');
+const archiver = require("archiver");
 
 
 module.exports.prepareDatabase = async () => {
@@ -29,7 +30,7 @@ module.exports.initPlugin = async ({ logger, graphql }) => {
                 file = path.resolve(dir, file);
                 const statFile = await stat(file);
                 if (statFile && statFile.isDirectory()) {
-                    results.push({ name: path.basename(file), type: 'directory', children: getFiles(file) });
+                    results.push({ name: path.basename(file), type: 'directory', children: (await getFiles(file)) });
                 } else {
                     results.push({ name: path.basename(file), type: 'file', mimeType: mime.lookup(file) });
                 }
@@ -92,6 +93,41 @@ module.exports.initPlugin = async ({ logger, graphql }) => {
         })();
 
     });
+
+    router.get('/zip/:appName', (req, res) => {
+        (async ()=>{
+            if(!await graphql.checkAppAccessMiddleware(req, res)){ return ;}
+
+            const zipFileName = `${req.params.appName}.zip`;
+            res.setHeader('Content-Disposition', `attachment; filename=${zipFileName}`);
+            res.setHeader('Content-Type', 'application/zip');
+          
+            // Create the zip archive
+            const archive = archiver('zip', {
+                zlib: { level: 5 } // Sets the compression level (0-9)
+            });
+          
+            // On archive finalize, log result
+            // archive.on('end', () => {
+            //   console.log(`Archive ${zipFileName} has been finalized and output file descriptor has closed.`);
+            // });
+          
+            // Handle archive errors
+            archive.on('error', (err) => {
+                throw res.status(500).json(err);
+            });
+          
+            // Pipe the output to the response
+            archive.pipe(res);
+          
+            // Append files from the directory
+            const filesDirectory = path.join(process.env.DATA_DIR, "apps", req.params.appName);
+            archive.directory(filesDirectory, false);
+          
+            // Finalize the archive
+            archive.finalize();
+        })();
+      });
 
     return {
         // path in which the plugin provide its front end files

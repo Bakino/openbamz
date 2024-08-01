@@ -53,12 +53,12 @@ function loadFileTree() {
         });
 }
 
-function createFileTree(files) {
+function createFileTree(files, parentPath=[]) {
     return files.map(file => {
         if (file.type === 'directory') {
-            return `<li class="directory">${file.name}<ul>${createFileTree(file.children)}</ul></li>`;
+            return `<li class="directory">${file.name}<ul>${createFileTree(file.children, parentPath.concat(file.name))}</ul></li>`;
         }
-        return `<li class="file" data-path="${file.name}" data-mime="${file.mimeType}">${file.name}</li>`;
+        return `<li class="file" data-path="${parentPath.concat(file.name).join("/")}" data-mime="${file.mimeType}">${file.name}</li>`;
     }).join('');
 }
 
@@ -122,6 +122,43 @@ async function doSave(content, filePath){
 }
 
 document.getElementById('save-button').addEventListener('click', saveCurrentFile);
+
+document.getElementById('download-button').addEventListener('click', async () => {
+    try {
+        // Fetch the file from the URL
+        const response = await window.openbamz.fetchAuth(`/code-editor/zip/${window.OPENBAMZ_APP}`);
+        
+        // Check if the response is OK (status code in the range 200-299)
+        if (!response.ok) {
+          throw new Error(`Failed to fetch file: ${response.statusText}`);
+        }
+        
+        // Convert the response to a Blob
+        const blob = await response.blob();
+        
+        // Create a link element
+        const link = document.createElement('a');
+        
+        // Create a URL for the Blob and set it as the href attribute of the link
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        
+        // Set the file name (optional)
+        link.download = `${window.OPENBAMZ_APP}.zip`;
+        
+        // Append the link to the document (required for Firefox)
+        document.body.appendChild(link);
+        
+        // Programmatically click the link to trigger the download
+        link.click();
+        
+        // Clean up by removing the link from the document and revoking the Object URL
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error('Error downloading file:', error);
+      }
+});
 
 document.getElementById('filter').addEventListener('input', (e) => {
     const filterText = e.target.value.toLowerCase();
@@ -188,5 +225,51 @@ function handleDrop(e) {
 document.getElementById('editor-section').addEventListener('dragover', handleDragOver);
 document.getElementById('editor-section').addEventListener('dragleave', handleDragLeave);
 document.getElementById('editor-section').addEventListener('drop', handleDrop);
+
+
+document.getElementById('select-dir').addEventListener('click', async () => {
+    try {
+      // Request permission to access the directory
+      const dirHandle = await window.showDirectoryPicker();
+      // Recursively read files and upload them
+      await processDirectory(dirHandle);
+    } catch (err) {
+      console.error('Error accessing directory:', err);
+    }
+  });
+
+  async function processDirectory(dirHandle, basePath = []) {
+    for await (const entry of dirHandle.values()) {
+      if (entry.kind === 'file') {
+        const file = await entry.getFile();
+        await uploadFile(file, basePath.concat(file.name).join("/"));
+      } else if (entry.kind === 'directory') {
+        await processDirectory(entry,  basePath.concat(entry.name));
+      }
+    }
+    loadFileTree();
+  }
+
+  async function uploadFile(file, filePath) {
+    try {
+
+        const formData = new FormData();
+        formData.append('path', filePath);
+        formData.append('file', file);
+    
+        let response = await window.openbamz.fetchAuth(`/code-editor/files/${window.OPENBAMZ_APP}/save`, {
+            method: 'POST',
+            body: formData
+        });
+
+      if (response.ok) {
+        console.log(`${file.name} uploaded successfully`);
+      } else {
+        console.error(`Error uploading ${file.name}`);
+      }
+    } catch (err) {
+      console.error('Error uploading file:', err);
+    }
+  }
 
 loadFileTree();
