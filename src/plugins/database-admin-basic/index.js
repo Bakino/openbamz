@@ -16,10 +16,10 @@ module.exports.cleanDatabase = async ({client})=>{
 
 
 module.exports.initPlugin = async ()=>{
-    //add link to top menu
     return {
         // path in which the plugin provide its front end files
         frontEndPath: "html",
+        //menu entries
         menu: [
             { name: "admin", entries: [
                 { name: "Database admin", link: "/plugin/:appName/database-admin-basic/" }

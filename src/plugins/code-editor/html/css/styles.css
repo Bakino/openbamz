@@ -1,0 +1,44 @@
+#editor-container {
+    display: flex;
+    height: 100vh;
+  }
+  
+  #file-tree {
+    width: 300px;
+    border-right: 1px solid #ccc;
+    overflow-y: auto;
+  }
+  
+  #editor {
+    flex-grow: 1;
+  }
+  
+  #filter {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px;
+    border-bottom: 1px solid #ccc;
+  }
+  
+  #file-list {
+    list-style: none;
+    padding: 0;
+  }
+  
+  #file-list li {
+    padding: 10px;
+    cursor: pointer;
+  }
+  
+  #file-list li:hover {
+    background-color: #f0f0f0;
+  }
+  
+  .directory {
+    font-weight: bold;
+  }
+  
+  .file {
+    color: #555;
+  }
+  
