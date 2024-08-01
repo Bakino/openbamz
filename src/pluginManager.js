@@ -20,6 +20,9 @@ async function initPlugins(params){
                 pluginsData[pluginDir].frontEndFullPath = path.join(dir, pluginDir,pluginsData[pluginDir].frontEndPath);
                 params.app.use(`/plugin/:appName/${pluginDir}/`, express.static(pluginsData[pluginDir].frontEndFullPath));
             }
+            if(pluginsData[pluginDir].router){
+                params.app.use(`/${pluginDir}/`, pluginsData[pluginDir].router);
+            }
         }
     }
     return pluginsData;

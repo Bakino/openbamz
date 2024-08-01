@@ -6,6 +6,15 @@ const { run, Logger } = require("graphile-worker");
 const fs = require('fs-extra')
 
 
+// Main DB connection information from env variables
+const MAIN_DB_OPTIONS = {
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
+    database: process.env.DB_NAME,
+};
+
 async function createIfNotExist(options){
     const client = new Client(options) ;
     try{
@@ -315,6 +324,7 @@ async function deleteAppDirectory(options) {
 }
 
 
+module.exports.MAIN_DB_OPTIONS = MAIN_DB_OPTIONS;
 module.exports.createIfNotExist = createIfNotExist;
 module.exports.prepareSchema = prepareSchema;
 module.exports.prepareMainRoles = prepareMainRoles;

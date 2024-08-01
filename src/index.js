@@ -6,6 +6,7 @@ const fs = require("fs");
 const { createIfNotExist, prepareSchema,prepareMainRoles, startWorkers, getConnectionInfo, preparePlugins } = require("./database/init");
 const { createServer } = require("node:http");
 const { initPlugins, middlewareMenuJS } = require("./pluginManager");
+const graphql = require("./database/graphql");
 
 process.env.GRAPHILE_ENV = process.env.PROD_ENV 
 
@@ -42,8 +43,6 @@ async function prepare() {
 
 // Start server
 async function start() {
-    const graphileConfig = require("./database/graphileConfig");
-    const {postgraphile} = require("postgraphile");
     const { grafserv } = require("postgraphile/grafserv/express/v4");
 
 
@@ -116,7 +115,7 @@ async function start() {
         }
     });
 
-    let pluginsData = await initPlugins({app}) ;
+    let pluginsData = await initPlugins({app, logger, graphql}) ;
 
     const graphServers = {} ;
 
@@ -151,8 +150,10 @@ async function start() {
 
                 return preparePlugins(options);
             }).then(()=>{
+                return graphql.getDbGraphql(appName);
+            }).then((pgl)=>{
                 startWorkers(options) ;
-                const serv = postgraphile(graphileConfig.createAppPreset(options)).createServ(grafserv);
+                const serv = pgl.createServ(grafserv);
                 graphServers[appName] = serv;
                 serv.addTo(app, server).catch((e) => {
                     logger.error("Unexpected error %o", e);
@@ -180,7 +181,8 @@ async function start() {
     server.on("error", (e) => {
         logger.error("Unexpected error %o", e);
     });
-    const serv = postgraphile(graphileConfig.mainDbPreset).createServ(grafserv);
+    const pgl = await graphql.getMainGraphql();
+    const serv = pgl.createServ(grafserv);
 
     serv.addTo(app, server).catch((e) => {
         logger.error("Unexpected error %o", e);

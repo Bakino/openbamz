@@ -44,7 +44,7 @@ function setEditorLanguage(mimeType) {
 }
 
 function loadFileTree() {
-    fetch('/files')
+    window.openbamz.fetchAuth(`/code-editor/files/${window.OPENBAMZ_APP}`)
         .then(response => response.json())
         .then(files => {
             const fileList = document.getElementById('file-list');
@@ -68,7 +68,7 @@ function addFileClickHandlers() {
             if (currentFilePath && setModified(false)) return; // Prevent changing files if unsaved changes
 
             currentFilePath = fileElement.getAttribute('data-path');
-            fetch(`/files/content?path=${currentFilePath}`)
+            window.openbamz.fetchAuth(`/code-editor/files/${window.OPENBAMZ_APP}/content?path=${currentFilePath}`)
                 .then(response => response.text())
                 .then(content => {
                     editor.setValue(content);
@@ -114,7 +114,7 @@ async function doSave(content, filePath){
     formData.append('path', filePath);
     formData.append('file', new Blob([content], { type: 'application/octet-stream' }), 'filename');
 
-    return await fetch('/files/save', {
+    return await window.openbamz.fetchAuth(`/code-editor/files/${window.OPENBAMZ_APP}/save`, {
         method: 'POST',
         body: formData
     });

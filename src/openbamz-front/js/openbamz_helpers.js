@@ -32,6 +32,25 @@ result
             return false;
         }
     },
+    fetchAuth: async function(url, options){
+        try{
+            const jwt = localStorage.getItem("openbamz-jwt") ;
+            if(jwt){
+                if(!options){
+                    options = {} ;
+                }
+                if(!options.headers){
+                    options.headers = {} ;
+                }
+                if(!options.headers.Authorization && !options.headers.authorization){
+                    options.headers.Authorization = "Bearer "+jwt ;
+                }
+            }
+        }catch(err){
+            console.warn("Can't access to local storage", err) ;
+        }
+        return fetch(url, options) ;
+    },
     logout: async function (){
         localStorage.removeItem("openbamz-jwt") ;
     },
