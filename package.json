@@ -4,7 +4,12 @@
     "description": "OpenBamz",
     "scripts": {
         "start": "nodejs src/index.js",
-        "debug": "nodemon --watch src --ext js,html,json,sql --nolazy --exec 'kill-port -k 5858/tcp; node --inspect=0.0.0.0:5858 src/index.js'"
+        "debug": "nodemon --watch src --ext mjs,cjs,js,html,json,sql --nolazy --exec 'kill-port -k 5858/tcp; node --inspect=0.0.0.0:5858 src/index.js'"
+    },
+    "nodemonConfig": {
+        "-ignore": ["src/plugins/react-remix/*", "src/plugins/react-remix/build/"],
+        "delay": 2,
+        "verbose": true
     },
     "author": "Bakino",
     "private": true,

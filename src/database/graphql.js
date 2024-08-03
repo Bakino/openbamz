@@ -1,7 +1,7 @@
 const { grafast } = require("grafast");
 const graphileConfig = require("./graphileConfig");
 const { postgraphile } = require("postgraphile");
-const { getConnectionInfo, MAIN_DB_OPTIONS } = require("./init");
+const { getConnectionInfo, MAIN_DB_OPTIONS } = require("./dbAccess");
 const logger = require("../logger");
 
 let pglMain;

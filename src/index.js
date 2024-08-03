@@ -3,10 +3,11 @@ const express = require("express");
 const bodyParser = require('body-parser')
 const path = require("path");
 const fs = require("fs");
-const { createIfNotExist, prepareSchema,prepareMainRoles, startWorkers, getConnectionInfo, preparePlugins } = require("./database/init");
+const { createIfNotExist, prepareSchema,prepareMainRoles, startWorkers, preparePlugins } = require("./database/init");
 const { createServer } = require("node:http");
 const { initPlugins, middlewareMenuJS } = require("./pluginManager");
 const graphql = require("./database/graphql");
+const { getConnectionInfo, runQuery, runQueryMain, getDbClient } = require("./database/dbAccess");
 
 process.env.GRAPHILE_ENV = process.env.PROD_ENV 
 
@@ -54,6 +55,9 @@ async function start() {
 
     // parse application/json
     app.use(bodyParser.json())
+
+
+    let pluginsData = await initPlugins({app, logger, graphql, runQuery, runQueryMain, getDbClient}) ;
 
     // Middleware to modify HTML content
     app.use(["/app/*", "/plugin/*"],(req, res, next) => {
@@ -115,7 +119,16 @@ async function start() {
         }
     });
 
-    let pluginsData = await initPlugins({app, logger, graphql}) ;
+    //Register after the middleware to modify HTML
+    for(let pluginDir of Object.keys(pluginsData)){
+        if(pluginsData[pluginDir].frontEndPath){
+            app.use(`/plugin/:appName/${pluginDir}/`, express.static(pluginsData[pluginDir].frontEndFullPath));
+        }
+        if(pluginsData[pluginDir].router){
+            logger.info(`Register routing /${pluginDir}/`);
+            app.use(`/${pluginDir}/`, pluginsData[pluginDir].router);
+        }
+    }
 
     const graphServers = {} ;
 

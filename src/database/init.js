@@ -1,24 +1,16 @@
-const { Client } = require('pg');
 const logger = require("../logger") ;
 const { readFile } = require('node:fs/promises');
 const path = require("path") ;
 const { run, Logger } = require("graphile-worker");
-const fs = require('fs-extra')
+const fs = require('fs-extra');
+const { getDbClient } = require("./dbAccess");
+const { dynamicImport } = require("../pluginManager");
 
 
-// Main DB connection information from env variables
-const MAIN_DB_OPTIONS = {
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
-    database: process.env.DB_NAME,
-};
+
 
 async function createIfNotExist(options){
-    const client = new Client(options) ;
     try{
-        await client.connect();
         logger.debug("Database connection OK");
     }catch(err){
         if(err.message && err.message.indexOf("ECONNREFUSED") !== -1){
@@ -31,38 +23,30 @@ async function createIfNotExist(options){
             optionsCreate[k] = options[k] ;
         }) ;
         optionsCreate.database = "postgres" ;
-        const clientCreate = new Client(optionsCreate) ;
+        const clientCreate = await getDbClient(optionsCreate) ;
         try{
-            await clientCreate.connect();
             await clientCreate.query("CREATE DATABASE "+options.database, []);
         }finally{
-            clientCreate.end() ;
+            clientCreate.release() ;
         }
-        
-    }finally{
-        client.end() ;
     }
 }
 
 async function prepareSchema(options, schemaName){
-    const client = new Client(options) ;
+    const client = await getDbClient(options) ;
     try{
-        await client.connect();
-
         let sql = await readFile(path.join(__dirname, schemaName+".sql"), {encoding: "utf8"}) ;
         logger.info("start run query");
         await client.query(sql);        
         logger.info("end run query");
     }finally{
-        client.end() ;
+        client.release() ;
     }
 }
 
 async function prepareMainRoles(options){
-    const client = new Client(options) ;
+    const client = await getDbClient(options) ;
     try{
-        await client.connect();
-
         let role = "normal_user";
         let result = await client.query("SELECT 1 FROM pg_catalog.pg_roles WHERE rolname =  $1", [role]);
         if(result.rows.length === 0){
@@ -134,69 +118,49 @@ async function prepareMainRoles(options){
         }
 
     }finally{
-        client.end() ;
+        client.release() ;
     }
 } 
 
-async function getConnectionInfo(options, database){
-
-    const client = new Client(options) ;
-    try{
-        await client.connect();
-
-        let result = await client.query(`SELECT acc.* FROM app a 
-            JOIN private.account acc ON a.owner = acc._id
-            WHERE a.code =  $1`, [database]);
-        let appAccount = result.rows[0] ;
-
-        return appAccount;
-    }finally{
-        client.end() ;
-    }
-}
-
 async function preparePlugins(options){
-    const client = new Client(options) ;
+    const client = await getDbClient(options) ;
     try{
-        await client.connect();
 
         let result = await client.query(`SELECT * FROM openbamz.plugins`);
         let plugins = result.rows ;
 
         for(let pluginRecord of plugins){
-            let plugin = require("../plugins/"+pluginRecord.plugin_id+"/index.js") ;
+            let plugin = await dynamicImport(pluginRecord.plugin_id);
             await plugin.prepareDatabase({client});
         }
     }finally{
-        client.end() ;
+        client.release() ;
     }
 }
 
 async function addPlugin(options, pluginName){
-    const client = new Client(options) ;
+    const client = await getDbClient(options) ;
     try{
-        await client.connect();
-        let plugin = require("../plugins/"+pluginName+"/index.js") ;
+        let plugin = await dynamicImport(pluginName);
+
         await plugin.prepareDatabase({client});
     }finally{
-        client.end() ;
+        client.release() ;
     }
 }
 async function removePlugin(options, pluginName){
-    const client = new Client(options) ;
+    const client = await getDbClient(options) ;
     try{
-        await client.connect();
-        let plugin = require("../plugins/"+pluginName+"/index.js") ;
+        let plugin = await dynamicImport(pluginName);
         await plugin.cleanDatabase({client});
     }finally{
-        client.end() ;
+        client.release() ;
     }
 }
 
 async function prepareRole(options, account){
-    const client = new Client(options) ;
+    const client = await getDbClient(options) ;
     try{
-        await client.connect();
 
         let role = options.database+"_admin";
         let result = await client.query("SELECT 1 FROM pg_catalog.pg_roles WHERE rolname =  $1", [role]);
@@ -277,7 +241,7 @@ async function prepareRole(options, account){
 
         logger.info("Finish GRANT");
     }finally{
-        client.end() ;
+        client.release() ;
     }
 } 
 
@@ -324,13 +288,11 @@ async function deleteAppDirectory(options) {
 }
 
 
-module.exports.MAIN_DB_OPTIONS = MAIN_DB_OPTIONS;
 module.exports.createIfNotExist = createIfNotExist;
 module.exports.prepareSchema = prepareSchema;
 module.exports.prepareMainRoles = prepareMainRoles;
 module.exports.startWorkers = startWorkers;
 module.exports.prepareRole = prepareRole;
-module.exports.getConnectionInfo = getConnectionInfo;
 module.exports.prepareAppDirectory = prepareAppDirectory;
 module.exports.deleteAppDirectory = deleteAppDirectory;
 module.exports.preparePlugins = preparePlugins;

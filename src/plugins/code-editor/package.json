@@ -2,7 +2,7 @@
     "name": "code-editor",
     "version": "1.0.0",
     "description": "OpenBamz code editor based on monica editor",
-    "main": "index.js",
+    "main": "index.cjs",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1"
     },

@@ -1,27 +1,47 @@
 const path = require("path") ;
 const { readdir, readFile } = require('node:fs/promises');
 const express = require("express");
-const { Client } = require('pg');
 const logger = require("./logger");
+const { getDbClient } = require("./database/dbAccess");
+const { access, constants } = require("fs/promises");
 let pluginsData = {} ;
+
+const pluginDirectories = [path.join(__dirname, "plugins")] ;
+
+async function dynamicImport(pluginName, pluginDir) {
+    if(!pluginDir){
+        for(let dir of pluginDirectories){
+            try{
+                await access(path.join(dir, pluginName), constants.F_OK);
+                pluginDir = dir;
+                break;
+            }catch(err){
+                //not exists
+                logger.debug("Plugin "+pluginName+" does not exists in "+dir, err) ;
+            }
+        }
+    }
+    let modulePath = path.join(pluginDir, pluginName) ;
+    let pkg = require(path.join(modulePath, "package.json"));
+    if(pkg.type === "module"){
+        return import(path.join(modulePath, pkg.main))
+    }else{
+        return require(path.join(modulePath, pkg.main))
+    }
+}
 
 //init all plugins on application start
 async function initPlugins(params){
     pluginsData = {} ;
-    const pluginDirectories = [path.join(__dirname, "plugins")] ;
     for(let dir of pluginDirectories){
         let subdirs = (await readdir(dir, { withFileTypes: true }))
                 .filter(dirent => dirent.isDirectory())
                 .map(dirent => dirent.name);
         for(let pluginDir of subdirs){
-            let plugin = require(path.join(dir, pluginDir, "index.js")) ;
+            let plugin = await dynamicImport(pluginDir, dir) ;
             pluginsData[pluginDir] = await plugin.initPlugin(params);
             if(pluginsData[pluginDir].frontEndPath){
                 pluginsData[pluginDir].frontEndFullPath = path.join(dir, pluginDir,pluginsData[pluginDir].frontEndPath);
-                params.app.use(`/plugin/:appName/${pluginDir}/`, express.static(pluginsData[pluginDir].frontEndFullPath));
-            }
-            if(pluginsData[pluginDir].router){
-                params.app.use(`/${pluginDir}/`, pluginsData[pluginDir].router);
             }
         }
     }
@@ -53,10 +73,8 @@ function middlewareMenuJS(req, res){
             port: process.env.DB_PORT,
             database: appName
         }; 
-        //FIXME: use a pool ?
-        const client = new Client(options) ;
+        const client = await getDbClient(options) ;
         try{
-            await client.connect();
             let results;
             try{
                 results = await client.query("SELECT plugin_id FROM openbamz.plugins");  
@@ -99,7 +117,7 @@ ${jsSource}
 window.OPENBAMZ_APP = '${req.query.appName}' ;
 `)
         }finally{
-            client.end() ;
+            client.release() ;
         }
     })() ;
 }
@@ -107,3 +125,4 @@ window.OPENBAMZ_APP = '${req.query.appName}' ;
 module.exports.initPlugins = initPlugins;
 module.exports.pluginsData = pluginsData;
 module.exports.middlewareMenuJS = middlewareMenuJS;
+module.exports.dynamicImport = dynamicImport;
