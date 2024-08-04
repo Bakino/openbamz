@@ -19,6 +19,7 @@ window.openbamz = {
         return result.json() ;
     },
     authenticate: async function (email, password){
+        localStorage.removeItem("openbamz-jwt") ;
         let result = await window.openbamz.queryGraphql(`mutation auth {
 authenticate(input: {email: "${email}", password: "${password}"}) {
 result
