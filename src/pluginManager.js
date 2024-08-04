@@ -1,6 +1,5 @@
 const path = require("path") ;
 const { readdir, readFile } = require('node:fs/promises');
-const express = require("express");
 const logger = require("./logger");
 const { getDbClient } = require("./database/dbAccess");
 const { access, constants } = require("fs/promises");

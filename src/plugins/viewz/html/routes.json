@@ -1,0 +1,4 @@
+[
+    { "route": "/", "path": "views/test" },
+    { "route": "/about", "path": "views/about" }
+]

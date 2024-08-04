@@ -1,0 +1,40 @@
+<html>
+    <head>
+        <title>ViewZ</title>
+        <base href="/plugin/bam2/viewz/">
+    </head>
+    <body>
+        <h1>Welcome in ViewZ</h1>
+        <div id="container"></div>
+        <div id="container2"></div>
+
+        <script type="module">
+            // import {ViewZ} from "./lib/viewz.mjs"
+
+            // let testConfig = {
+            //     html: "views/test.html",
+            //     css: "views/test.css",
+            //     js: "views/test.js",
+            //     id: "test"
+            // };
+            // let view = new ViewZ(testConfig);
+            // view.render(document.getElementById("container"));
+            // let view2 = new ViewZ(testConfig);
+            // view2.render(document.getElementById("container2"));
+
+            import {createRouter} from "./lib/routerz.mjs"
+
+            let routes = [
+                { route: "/", path: "views/test" },
+                { route: "/about", path: "views/about" },
+            ]
+
+            let router = createRouter({
+                routes,
+                container: document.getElementById("container")
+            })
+            router.start() ;
+            window.router = router;
+        </script>
+    </body>
+</html>

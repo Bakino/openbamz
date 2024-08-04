@@ -56,7 +56,6 @@ async function start() {
     // parse application/json
     app.use(bodyParser.json())
 
-
     let pluginsData = await initPlugins({app, logger, graphql, runQuery, runQueryMain, getDbClient}) ;
 
     // Middleware to modify HTML content
@@ -188,6 +187,8 @@ async function start() {
         }
     });
 
+
+   
 
     // Create a Node HTTP server, mounting Express into it
     const server = createServer(app);

@@ -1,0 +1,33 @@
+<html>
+
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>React builder</title>
+        <script src="/openbamz/js/openbamz_helpers.js"></script>
+    
+    </head>
+    <body>
+        <button type="button" id="build">Build now</button>
+
+        <script>
+            document.getElementById("build").addEventListener("click", async ()=>{
+                try{
+                    let response = await window.openbamz.fetchAuth(`/svelte/build/${window.OPENBAMZ_APP}`, {
+                        method: 'GET'
+                    });
+                    if (response.ok) {
+                        window.alert("BUILD OK")
+                    } else {
+                        window.alert("ERROR")
+                        console.error(`Error build `, await response.json());
+                    }
+                }catch(err){
+                    window.alert("ERROR")
+                    console.error(`Error build`, err);
+
+                }
+            })
+        </script>
+    </body>
+</html>

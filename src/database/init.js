@@ -5,12 +5,15 @@ const { run, Logger } = require("graphile-worker");
 const fs = require('fs-extra');
 const { getDbClient } = require("./dbAccess");
 const { dynamicImport } = require("../pluginManager");
+const { Client } = require('pg');
 
 
 
 
 async function createIfNotExist(options){
+    const client = new Client(options) ;
     try{
+        await client.connect();
         logger.debug("Database connection OK");
     }catch(err){
         if(err.message && err.message.indexOf("ECONNREFUSED") !== -1){
@@ -23,12 +26,16 @@ async function createIfNotExist(options){
             optionsCreate[k] = options[k] ;
         }) ;
         optionsCreate.database = "postgres" ;
-        const clientCreate = await getDbClient(optionsCreate) ;
+        const clientCreate = new Client(optionsCreate) ;
         try{
+            await clientCreate.connect();
             await clientCreate.query("CREATE DATABASE "+options.database, []);
         }finally{
-            clientCreate.release() ;
+            clientCreate.end() ;
         }
+        
+    }finally{
+        client.end() ;
     }
 }
 
