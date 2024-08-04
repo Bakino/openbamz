@@ -115,7 +115,7 @@ export function waiter(promise, parentElement){
     let spinner;
     const spinnerTimeoutId = setTimeout(()=>{
         spinner = showWaiter(parentElement) ;
-    }, 400) ;
+    }, 100) ;
     // const stack = getStack() ;
     // setTimeout(()=>{
     //     if(spinner && !spinner.done){

@@ -11,6 +11,8 @@ async function polyfillCssScope(){
     return "scoped" ;
 }
 
+const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+
 let VIEWS = {};
 let viewInc = 0;
 export class ViewZ {
@@ -46,9 +48,6 @@ export class ViewZ {
      * @param {*} transformer 
      */
     docTransformer(transformer){
-        if(VIEWS[this.viewId]){
-            console.warn("You are trying to add a transformer but the view has already been prepared") ;
-        }
         this.docTransformers.push(transformer);
     }
 
@@ -58,7 +57,7 @@ export class ViewZ {
         return true;
     }
 
-    async prepareSources(){
+    async prepareSources({ ssr }){
         if(VIEWS[this.viewId]){ 
             if(VIEWS[this.viewId] === "preparing"){
                 //currently preparing, wait a little
@@ -70,74 +69,56 @@ export class ViewZ {
             }
             return; 
         }
+
         VIEWS[this.viewId] = "preparing" ;
-        let response = await fetch(this.options.html);
+
         let sources = {
             html: "",
             js: "",
             css: "",
         }
-        sources.html = await response.text();
-        
+
         if(this.options.js){
             let response = await fetch(this.options.js);
             let js = await response.text();
             sources.js = js;
+            let scriptBody = `${sources.js}
+//# sourceURL=${this.options.js}` ;
+
+            sources.jsFunction = new AsyncFunction("view", scriptBody);
         }
 
-        if(this.options.css){
-            let response = await fetch(this.options.css);
-            let css = await response.text();
-            sources.css = css;
+        VIEWS[this.viewId]= {sources};
+
+        let loadHtmlCss = async ()=>{
+            let response = await fetch(this.options.html);
+            
+            sources.html = await response.text();
+            
+            if(this.options.css){
+                let response = await fetch(this.options.css);
+                let css = await response.text();
+                sources.css = css;
+            }
+    
+            let template = document.createElement("template") ;
+            let css = "";
+            if(sources.css){
+               css = `<style>${sources.css}</style>`
+            }
+            template.innerHTML = `${css}${sources.html}` ;
+            
+            document.body.appendChild(template) ;
+            VIEWS[this.viewId]= {sources, template};
         }
 
-        let template = document.createElement("template") ;
-        let css = "";
-        if(sources.css){
-            /*let scopeMode = await polyfillCssScope();
-            if(scopeMode === "@scope"){
-                css = `<style>@scope {${sources.css}}</style>`
-            }else{
-                //using polyfill
-                css = `<style scoped>${sources.css}</style>`
-            }*/
-           css = `<style>${sources.css}</style>`
+        if(ssr){
+            //HTML already loaded, don't wait for its refetch
+            loadHtmlCss();
+        }else{
+            //not in SSR mode, wait for all loaded
+            await loadHtmlCss();
         }
-        template.innerHTML = `${css}${sources.html}` ;
-        
-        document.body.appendChild(template) ;
-
-       /* customElements.define('view-'+this.viewId,
-            class extends HTMLElement {
-                constructor() {
-                    super();
-
-                    let templateContent = template.content;
-
-                    let body = this.attachShadow({mode: 'open'}) ;
-
-                    const clone = document.importNode(templateContent, true);
-                    const bodyEl = document.createElement("body") ;
-                    bodyEl.appendChild(clone) ;
-
-                    
-                    this.shadowRoot.createElement = function(){
-                        return document.createElement.apply(document, arguments) ;
-                    } ;
-                    
-                    
-                    if(sources.css){
-                        let styleEl = document.createElement("STYLE");
-                        styleEl.innerHTML = sources.css;
-                        body.appendChild(styleEl) ;
-                    }
-
-                    //bodyEl.style.display = "none" ;
-                    body.appendChild(bodyEl);
-                }
-        }) ;*/
-
-        VIEWS[this.viewId]= {sources, template};
     }
 
     async bind(forceRefresh = false){
@@ -145,11 +126,11 @@ export class ViewZ {
             params : this.route?(this.route.params||{}):{}, 
             pathname: this.route?this.route.pathname:"",
             actions: this.actions} ;
-        this.body._globals = newGlobals ;
+        this.container._globals = newGlobals ;
         //window.tr(this.body) ;
         let data = this.data ;
-        if(this.body && this.body.__zzBindData){
-            data = this.body.__zzBindData ;
+        if(this.container && this.container.zzBindData){
+            data = this.container.zzBindData ;
             if(!data._globals){
                 data._globals = newGlobals ;
             }else{
@@ -166,26 +147,69 @@ export class ViewZ {
         if(!data._globals){
             data._globals = newGlobals ;
         }
-        await binding.bind(this.body, data, null, null, forceRefresh) ;
+        await binding.bind(this.container, data, null, null, forceRefresh) ;
     }
 
     async render({container, route, ssr}){
-        if(!ssr && !this.sourcesPrepared()){
-            container.innerHTML = this.loader;
-        }
         //polyfill immediatly
         let scopeMode = await polyfillCssScope();
 
+
+        this.container = container ;
         this.route = route ;
 
-        if(!ssr){
-            //in SSR, prepare the source at the end to avoid to wait for something we already have
-            await this.prepareSources();
+        //TODO: improve this cleaning
+        delete this.container.zzBindData ;
+        delete this.container.__zzBindPrepared ;
+        this.container.removeAttribute("zz-bind-prepared");
+
+        if(this.container.zzView){
+            //remove all listener of previous view rendered in this container
+            this.container.zzView.eventController.abort()
+        }
+        //set this view as current view of this controller
+        this.container.zzView = this;
+
+        this.eventController = new AbortController();
+        const { signal } = this.eventController;
+        
+        // add event listener
+        this.addEventListener = function(type, listener, options = {}){
+            options.signal = signal ;
+            this.container.addEventListener(type, listener, options) ;
+        };
+
+        let jsRunDone = false;
+        if(this.sourcesPrepared() && VIEWS[this.viewId].sources.jsFunction){
+            //the sources is already prepared, run the JS immediatly
+            jsRunDone = true;
+            await VIEWS[this.viewId].sources.jsFunction(this);
+        }
+
+
+        if(!ssr && (!this.sourcesPrepared() || this.fetchData)){
+            // If the HTML is not yet available or there is data to fetch, add loaded inside the container
+            container.innerHTML = this.loader;
+        }else{
+            waiter(new Promise((resolve)=>{
+                this.addEventListener("displayed", resolve, {once: true});
+            }));
+        }
+
+        await this.prepareSources({ssr});
+
+        if(!jsRunDone && VIEWS[this.viewId].sources.jsFunction){
+            //the JS has not been run yet, run now
+            await VIEWS[this.viewId].sources.jsFunction(this);
         }
         
-        this.data = {};
+        if(this.fetchData){
+            this.data = await this.fetchData();
+        }else{
+            this.data = {};
+        }
 
-        if(this.container === container && this.container.getAttribute("z-view") === this.options.page){
+       /*if(this.container === container && this.container.getAttribute("z-view") === this.options.page){
             //already active, refresh
             // waiter(this.bind()).then(()=>{
             //     this.body.dispatchEvent(new CustomEvent("refresh"));
@@ -194,14 +218,11 @@ export class ViewZ {
             return waiter(this.bind()).then(()=>{
                 this.body.dispatchEvent(new CustomEvent("refresh"));
             }) ;
-        }
-        this.container = container ;
+        }*/
+        
+
+
         //this.container.setAttribute("z-view", this.options.page) ;
-        if(this.container.hasAttribute("z-view-instance-id")){
-            //the container previously contain another view instance, delete it to clean memory
-            delete window[this.container.getAttribute("z-view-instance-id")]
-        }
-        this.container.setAttribute("z-view-instance-id", this.instanceId) ;
 
         if(!ssr){
             this.container.innerHTML = "";
@@ -234,32 +255,17 @@ export class ViewZ {
             transformer(this.container) ;
         }
 
+        this.bind();
+
+        this.container.dispatchEvent(new CustomEvent("displayed"));
+
 
         //this.container.innerHTML = "<view-"+this.viewId+" id=\""+this.instanceId+"\" class=\"view-controller-container\"></view-"+this.viewId+">" ;
        /* this.body = this.container.querySelector("view-"+this.viewId) ;
         this.shadowRoot = this.body.shadowRoot;
-        window[this.instanceId] = this.shadowRoot ;
         this.shadowRoot._viewController = this ;*/
 
-        window[this.instanceId] = this ;
-
-        //waiter(this.bind());
-
-        if(ssr){
-            //in SSR, prepare the source at the end without waiting just to have it ready for next time
-            await this.prepareSources();
-        }
-
-        if(VIEWS[this.viewId].sources.js){
-            let scriptEl = document.createElement("SCRIPT");
-            scriptEl.type = "module" ;
-            scriptEl.innerHTML = `(function(view){
-${VIEWS[this.viewId].sources.js}
-})(window["${this.instanceId}"]) ;
-
-//# sourceURL=${this.options.js}`;
-            this.container.appendChild(scriptEl) ;
-        }
+        //waiter();
 
         
 

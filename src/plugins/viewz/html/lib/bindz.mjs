@@ -771,8 +771,8 @@ export function bind(el, data = {}, sessionId = null, dataPathToUpdate=null, for
         data._globals = el._globals ;
     }
     oData = observe(data, ({changedPath})=>{
-        //console.log("rebind ? ", el, el.__zzBindData === oData, el.__zzBindData, oData) ;
-        if(el.__zzBindData === oData){
+        //console.log("rebind ? ", el, el.zzBindData === oData, el.zzBindData, oData) ;
+        if(el.zzBindData === oData){
             bind(el, oData, null, changedPath) ;
         }
     }) ;
@@ -783,9 +783,9 @@ export function bind(el, data = {}, sessionId = null, dataPathToUpdate=null, for
         sessionId = ++sessionInc ;
     }
     //console.log("["+sessionId+"] start bind ");//, el, sessionId, data) ;
-    el.__zzBindData = oData;
+    el.zzBindData = oData;
     el.__zzBindRoot = true ;
-    el.getData = function(){ return el.__zzBindData ; } ;
+    el.getData = function(){ return el.zzBindData ; } ;
 
     el.dispatchEvent(new CustomEvent("bindStart", {detail : {data, dataPathToUpdate}}));
 
@@ -814,7 +814,7 @@ export function bind(el, data = {}, sessionId = null, dataPathToUpdate=null, for
             continue ;
         }
 
-        elementToBind.__zzBindData = oData ;
+        elementToBind.zzBindData = oData ;
 
         const bindSettings = JSON.parse(strBindSettings) ;
         let attributes = Object.keys(bindSettings);
@@ -895,18 +895,18 @@ export function bind(el, data = {}, sessionId = null, dataPathToUpdate=null, for
 
             if(att === "_value"){
                 elementToBind.getData = function(){ return valueToBind ; } ;
-                elementToBind.getParentData = function(){ return el.__zzBindData ; } ;
+                elementToBind.getParentData = function(){ return el.zzBindData ; } ;
                 if(elementToBind.content){
                     //case of template, propagate to the insed fragment
                     elementToBind.content.getData = function(){ return valueToBind ; } ;
-                    elementToBind.content.getParentData = function(){ return el.__zzBindData ; } ;
+                    elementToBind.content.getParentData = function(){ return el.zzBindData ; } ;
                 } 
                 if(elementToBind.tagName === "TEMPLATE" && !valueToBind){
                     //the value to bind should be an array but the current value is null/undefined
                     //give it an array !
                     // console.log("null instead of array, init array") ;
                     valueToBind = autoGrowArray([]) ;
-                    updateToPath(el.__zzBindData, bindPath, {value: valueToBind, _dontAutoBind: true}, true) ;
+                    updateToPath(el.zzBindData, bindPath, {value: valueToBind, _dontAutoBind: true}, true) ;
                 }
             }
 
@@ -928,12 +928,12 @@ export function bind(el, data = {}, sessionId = null, dataPathToUpdate=null, for
                     return valueToBind ;
                 } ;
                 elementToBind.render = function(){
-                    updateBoundElement(elementToBind, bindSettings, el.__zzBindData);
+                    updateBoundElement(elementToBind, bindSettings, el.zzBindData);
                 } ;
                 elementToBind.getRootData = function(){
-                    return el.__zzBindData ;
+                    return el.zzBindData ;
                 };
-                const createdOccurrenceElements = createOccurrences(el, elementToBind, valueToBind, el.__zzBindData, bindPath, sessionId) ;
+                const createdOccurrenceElements = createOccurrences(el, elementToBind, valueToBind, el.zzBindData, bindPath, sessionId) ;
                 for(let occEl of createdOccurrenceElements){
                     //add newly created occurrence to the elements to bind
                     if(occEl.getAttribute("zz-instance-session-id") == sessionId){
@@ -955,11 +955,11 @@ export function bind(el, data = {}, sessionId = null, dataPathToUpdate=null, for
                         if(value !== undefined){
                             elementToBind[valueAttr] = value ;
                         }
-                        updateBoundElement(elementToBind, bindSettings, el.__zzBindData);
+                        updateBoundElement(elementToBind, bindSettings, el.zzBindData);
                     } ;
                     elementToBind.getValue = function(){
                         const bindPath = bindSettings.value ;
-                        return extractFromPath(el.__zzBindData, bindPath) ;
+                        return extractFromPath(el.zzBindData, bindPath) ;
                     } ;
                     
                     if(elementToBind.tagName === "DIV" || elementToBind.tagName === "SPAN" 
@@ -990,8 +990,8 @@ export function bind(el, data = {}, sessionId = null, dataPathToUpdate=null, for
                                 // console.log("bind "+valueToBind+" ("+bindPath+") previous was "+elementToBind.value) ;
                                 if(elementToBind.isArrayContainer && !valueToBind){
                                     valueToBind = autoGrowArray([]) ;
-                                    updateToPath(el.__zzBindData, bindPath, {value: valueToBind, _dontAutoBind: true}, true) ;
-                                    valueToBind = extractFromPath(el.__zzBindData, bindPath) ;
+                                    updateToPath(el.zzBindData, bindPath, {value: valueToBind, _dontAutoBind: true}, true) ;
+                                    valueToBind = extractFromPath(el.zzBindData, bindPath) ;
                                 }
                                 elementToBind[valueAttr] = valueToBind ;
                             }else if(elementToBind.notifyChange){
@@ -1015,7 +1015,7 @@ export function bind(el, data = {}, sessionId = null, dataPathToUpdate=null, for
                             }
                             for(let event of events){
                                 elementToBind.addEventListener(event, function(ev){
-                                    updateBoundElement(elementToBind, bindSettings, elementToBind.__zzBindData, 
+                                    updateBoundElement(elementToBind, bindSettings, elementToBind.zzBindData, 
                                             elementToBind.hasAttribute("z-no-auto-update"), ()=>{
                                         if(!elementToBind.skipNextBind){
                                             elementToBind.skipNextBind = 0;
@@ -1059,7 +1059,7 @@ export function bind(el, data = {}, sessionId = null, dataPathToUpdate=null, for
                         else{
                             if(att === "z-bind-url" && valueToBind !== elementToBind.getAttribute(att)){
                                 elementToBind.removeAttribute("zz-fetch-done") ;
-                                // console.log("You must fetch "+valueToBind+" on ",elementToBind," (previously : "+elementToBind.getAttribute(att)+"), data ?", JSON.parse(JSON.stringify(el.__zzBindData))) ;
+                                // console.log("You must fetch "+valueToBind+" on ",elementToBind," (previously : "+elementToBind.getAttribute(att)+"), data ?", JSON.parse(JSON.stringify(el.zzBindData))) ;
                             }
                             if(typeof(valueToBind) === "object"){
                                 elementToBind.setAttribute(att, JSON.stringify(valueToBind)) ;
@@ -2247,7 +2247,7 @@ export function getSavePatch(el, idColumn="id", rowIndex=null){
     }
 
     let elRootData = el ;
-    while(!elRootData.__zzBindRoot && !elRootData.__zzBindData && elRootData.parentNode){
+    while(!elRootData.__zzBindRoot && !elRootData.zzBindData && elRootData.parentNode){
         elRootData = elRootData.parentNode ;
     }
     let bindPath = null;
@@ -2258,7 +2258,7 @@ export function getSavePatch(el, idColumn="id", rowIndex=null){
         const bindSettings = JSON.parse(elRootData.getAttribute("z-bind"));
         bindPath = bindSettings._value ;
     }
-    let data = elRootData.__zzBindData ;
+    let data = elRootData.zzBindData ;
     if(bindPath){
         data = extractFromPath(data, bindPath);
     }
@@ -2558,7 +2558,7 @@ function applyResultFromUrl(elementToFetch, result){
             while(!elRootData.__zzBindRoot && elRootData.parentNode){
                 elRootData = elRootData.parentNode ;
             }
-            let data = elRootData.__zzBindData ;
+            let data = elRootData.zzBindData ;
             if(!data){ 
                 //is outside a data context, probably a fetch finished after DOM change
                 return ;
@@ -2571,7 +2571,7 @@ function applyResultFromUrl(elementToFetch, result){
 
             //update live data that trigger rebind
             updateToPath(data, bindPath,valueToBind, true) ;
-            elementToFetch.__zzBindData = data;  
+            elementToFetch.zzBindData = data;  
             elementToFetch.__zzBindRoot = true;  
             return ;
         }
