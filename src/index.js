@@ -56,7 +56,10 @@ async function start() {
     // parse application/json
     app.use(bodyParser.json())
 
-    let pluginsData = await initPlugins({app, logger, graphql, runQuery, runQueryMain, getDbClient}) ;
+    const context = {
+        plugins: {}
+    }
+    let pluginsData = await initPlugins({app, logger, graphql, runQuery, runQueryMain, getDbClient, context}) ;
 
     // Middleware to modify HTML content
     app.use(["/app/*", "/plugin/*"],(req, res, next) => {

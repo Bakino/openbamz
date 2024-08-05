@@ -32,16 +32,22 @@ async function dynamicImport(pluginName, pluginDir) {
 //init all plugins on application start
 async function initPlugins(params){
     pluginsData = {} ;
+    let pluginsToLoad = [];
     for(let dir of pluginDirectories){
         let subdirs = (await readdir(dir, { withFileTypes: true }))
                 .filter(dirent => dirent.isDirectory())
                 .map(dirent => dirent.name);
         for(let pluginDir of subdirs){
+            let pkg = require(path.join(dir, pluginDir , "package.json"));
             let plugin = await dynamicImport(pluginDir, dir) ;
-            pluginsData[pluginDir] = await plugin.initPlugin(params);
-            if(pluginsData[pluginDir].frontEndPath){
-                pluginsData[pluginDir].frontEndFullPath = path.join(dir, pluginDir,pluginsData[pluginDir].frontEndPath);
-            }
+            pluginsToLoad.push({pkg, depends: pkg?.openbamz?.depends??[] , plugin, id: pluginDir, path: path.join(dir, pluginDir) });
+        }
+    }
+    pluginsToLoad = sortPluginByDependencies(pluginsToLoad) ;
+    for(let pluginToLoad of pluginsToLoad){
+        pluginsData[pluginToLoad.id] = await pluginToLoad.plugin.initPlugin(params);
+        if(pluginsData[pluginToLoad.id].frontEndPath){
+            pluginsData[pluginToLoad.id].frontEndFullPath = path.join(pluginToLoad.path ,pluginsData[pluginToLoad.id].frontEndPath);
         }
     }
     return pluginsData;
@@ -120,6 +126,63 @@ window.OPENBAMZ_APP = '${req.query.appName}' ;
         }
     })() ;
 }
+
+function sortPluginByDependencies(arr) {
+    // Create a map to store the objects by their id for quick access
+    const objMap = new Map(arr.map(obj => [obj.id, obj]));
+
+    // Create a map to track dependencies for each object
+    const dependencies = new Map();
+    const inDegree = new Map(); // to count the number of incoming edges for each object
+
+    // Initialize dependencies and inDegree maps
+    arr.forEach(obj => {
+        inDegree.set(obj.id, 0);
+        dependencies.set(obj.id, []);
+    });
+
+    // Fill the dependencies map and inDegree map
+    arr.forEach(obj => {
+        obj.depends.forEach(dep => {
+            if (objMap.has(dep)) {
+                dependencies.get(dep).push(obj.id);
+                inDegree.set(obj.id, (inDegree.get(obj.id) || 0) + 1);
+            }
+        });
+    });
+
+    // Perform topological sorting using Kahn's algorithm
+    const queue = [];
+    const sortedArray = [];
+
+    // Add objects with no dependencies (inDegree 0) to the queue
+    inDegree.forEach((degree, id) => {
+        if (degree === 0) {
+            queue.push(id);
+        }
+    });
+
+    while (queue.length) {
+        const currentId = queue.shift();
+        sortedArray.push(objMap.get(currentId));
+
+        // Decrease the inDegree of dependent objects
+        dependencies.get(currentId).forEach(depId => {
+            inDegree.set(depId, inDegree.get(depId) - 1);
+            if (inDegree.get(depId) === 0) {
+                queue.push(depId);
+            }
+        });
+    }
+
+    //Can't be sorted because of circular reference
+    let failedElements = arr.filter(o=>!sortedArray.some(a=>a.id === o.id))
+    if(failedElements.length>0){
+        logger.warn("The following plugins have circular dependencies, they are ignored %o", failedElements.map(o=>o.id).join(","))
+    }
+    return sortedArray;
+}
+
 
 module.exports.initPlugins = initPlugins;
 module.exports.pluginsData = pluginsData;

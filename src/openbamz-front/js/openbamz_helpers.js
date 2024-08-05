@@ -81,5 +81,18 @@ name
 }
 }`, "_openbamz");
         return result;
+    },
+    loadCss : async function(url){
+        let head = document.head;
+        return new Promise((resolve)=>{
+            var link = document.createElement("link");
+            link.rel = "stylesheet";
+            link.type = "text/css";
+            link.href = url;
+            
+            
+            head.appendChild(link);
+            resolve() ;
+        }) ;
     }
 }

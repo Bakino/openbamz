@@ -36,7 +36,7 @@ function injectStyles() {
     style.textContent = `
 
         body {
-            padding-top: 31px;
+            padding-top: 34px;
         }
         /* Style for the banner container */
         .openbamz-banner {

@@ -14,7 +14,7 @@ module.exports.cleanDatabase = async () => {
 }
 
 
-module.exports.initPlugin = async ({ logger, graphql }) => {
+module.exports.initPlugin = async ({ logger, graphql, context, runQuery }) => {
 
     //const filesDirectory = path.join(process.env.DATA_DIR, "apps" ,"plug");// path.join(__dirname, '..', 'public', 'files');
     const router = express.Router();
@@ -127,7 +127,52 @@ module.exports.initPlugin = async ({ logger, graphql }) => {
             // Finalize the archive
             archive.finalize();
         })();
-      });
+    });
+
+    //allow other plugin to register editor
+    const EXTENSIONS_PLUGINS = [
+        {
+            plugin: "code-editor",
+            extensionPath: "/plugin/:appName/code-editor/js/code-editor-monaco.mjs"
+        }
+    ];
+
+    context.plugins.codeEditor = {
+        registerExtension : (extension)=>EXTENSIONS_PLUGINS.push(extension)
+    };
+
+
+    router.get('/editor-extensions-allowed/:appName', (req, res) => {
+        (async ()=>{
+            if(!await graphql.checkAppAccessMiddleware(req, res)){ return ;}
+
+            let allPlugins = (await runQuery({database: req.params.appName}, "SELECT plugin_id FROM openbamz.plugins ")).rows;
+            let allowedExtensions = EXTENSIONS_PLUGINS.filter(extension=>allPlugins.some(p=>p.plugin_id === extension.plugin));
+            
+            res.json(allowedExtensions);
+        })();
+    })
+
+    router.get('/editor-extensions', (req, res) => {
+        (async ()=>{
+            
+
+            //let allPlugins = (await runQuery({database: req.params.appName}, "SELECT plugin_id FROM openbamz.plugins ")).rows;
+            //let allowedExtensions = EXTENSIONS_PLUGINS.filter(extension=>allPlugins.some(p=>p.plugin_id === extension.plugin));
+            let allowedExtensions = EXTENSIONS_PLUGINS
+            let js = `let extensions = [];`;
+            for(let i=0; i<allowedExtensions.length; i++){
+                let ext = allowedExtensions[i];
+                js += `
+                import ext${i} from "${ext.extensionPath.replace(":appName", "app")}" ;
+                extensions.push({ plugin: "${ext.plugin}", ...ext${i}}) ;
+                `
+            }
+            js += `export default extensions`;
+            res.setHeader("Content-Type", "text/javascript");
+            res.end(js);
+        })();
+    });
 
     return {
         // path in which the plugin provide its front end files
