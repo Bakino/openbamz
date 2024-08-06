@@ -94,6 +94,8 @@ async function updateContentFromEditor(fileEditor){
     }
 }
 
+let currentFileEditor = null;
+
 async function loadEditorTabs(){
     await loadExtensions();
 
@@ -121,9 +123,11 @@ async function loadEditorTabs(){
                 mimeType: currentFileElement.getAttribute('data-mime'),
                 getFileContent
             })
+            currentFileEditor = fileEditor;
         })
         tabEl.addEventListener('hide.bs.tab', async function () {
-            updateContentFromEditor(fileEditor) ;
+            await updateContentFromEditor(fileEditor) ;
+            currentFileEditor = false;
         })
 
         const divContent = document.createElement("DIV") ;
@@ -175,6 +179,9 @@ function refreshModifiedIndicator() {
 }
 
 async function saveModifications() {
+    if(currentFileEditor){
+        await updateContentFromEditor(currentFileEditor) ;
+    }
     for(let path of Object.keys(fileContents)){
         let isModified = fileContents[path].lastSaveContent !== fileContents[path].currentContent;
         if (isModified) {

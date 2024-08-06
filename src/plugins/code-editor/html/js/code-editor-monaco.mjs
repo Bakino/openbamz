@@ -1,6 +1,6 @@
+/*global monaco*/
+
 let editor;
-
-
 
 /*
 EDITORS.push({
@@ -18,28 +18,34 @@ EDITORS.push({
 })*/
 
 
-import * as monaco from 'https://esm.run/monaco-editor';
-
 export default {
     editors: [
         {
             id: "monaco-code-editor",
             mimeTypes: ["text/html", "text/javascript", "text/css"],
             name: "Code editor",
-            init: function({container, notifyModification}){
-                container.innerHTML = `<div id="monaco-editor-container" style="height:100%; width: 100%; display: flex"></div>`;
-    
-                editor = monaco.editor.create(document.getElementById('monaco-editor-container'), {
-                    value: '',
-                    language: 'plaintext',
-                    theme: 'vs-dark',
-                    //automaticLayout: true
-                });
-    
-                // Track content change
-                editor.onDidChangeModelContent(() => {
-                    notifyModification();
-                });
+            init: async function({container, notifyModification}){
+                new Promise((resolve)=>{
+
+                    require.config({ paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs' }});
+                    require(['vs/editor/editor.main'], function () {
+                        container.innerHTML = `<div id="monaco-editor-container" style="height:100%; width: 100%; display: flex"></div>`;
+            
+                        editor = monaco.editor.create(document.getElementById('monaco-editor-container'), {
+                            value: '',
+                            language: 'plaintext',
+                            theme: 'vs-dark',
+                            //automaticLayout: true
+                        });
+            
+                        // Track content change
+                        editor.onDidChangeModelContent(() => {
+                            notifyModification();
+                        });
+                        
+                        resolve();
+                    });
+                })
             },
             loadFile: async function({filePath, mimeType, getFileContent}){
                 let fileContent = await getFileContent({filePath}) ;
