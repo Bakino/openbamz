@@ -26,7 +26,15 @@ export default {
             init: async function({container, notifyModification}){
                 await prepareExtensions();
                 window.openbamz.loadCss("https://cdn.jsdelivr.net/npm/grapesjs@0.21.12/dist/css/grapes.min.css")
-                container.innerHTML = `<div id="grapesjs-editor-container" style="height:100%; width: 100%"></div>`;
+                container.innerHTML = `
+                <style>
+                    /* make the label of properties full width */
+                    .gjs-trt-trait { flex-wrap: wrap; }
+                    .gjs-label-wrp { width: 100%; }
+                </style>
+                <div id="grapesjs-editor-container" style="height:100%; width: 100%">
+                
+                </div>`;
         
                 const config = {
                     container: '#grapesjs-editor-container',
