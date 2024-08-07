@@ -1,129 +1,4 @@
-const typeClassSelect = {
-    inputHtml: ({trait})=>{
-        let opts = trait.get('options') || [];
-
-        let allClasses = [];
-        for (let opt of opts) {
-            if (opt.value) {
-                opt.value.split(' ').forEach(v => {
-                    allClasses.push(v);
-                });
-            }
-        }
-        trait.allClasses = allClasses;
-
-        
-        const el = document.createElement('div');
-        el.innerHTML = `<select class="select-type">
-                        ${opts.map(opt => {
-            return `<option value="${opt.value}">${opt.name}</option>`;
-        }).join("")}
-                    </select>`;
-
-        return el;
-    }, 
-    
-    onPropertyChange: ({ elInput, component, trait }) => {
-        const selectType = elInput.querySelector('.select-type');
-
-        const existingClasses = component.getClasses().filter(c => trait.allClasses.includes(c));
-        let newClasses = [];
-        if (selectType.value) {
-            newClasses = selectType.value.split(' ');
-        }
-        const classesToRemove = existingClasses.filter(c => !newClasses.includes(c));
-        const classesToAdd = newClasses.filter(c => !existingClasses.includes(c));
-        for (let c of classesToRemove) {
-            component.removeClass(c);
-        }
-        for (let c of classesToAdd) {
-            component.addClass(c);
-        }
-    },
-    
-    onComponentSelected: ({ elInput, component, trait })=> {
-
-        const existingClasses = component.getClasses().filter(c => trait.allClasses.includes(c));
-        const selectType = elInput.querySelector('.select-type');
-        let found = false;
-        for (let opt of selectType.options) {
-            if (opt.value) {
-                if (opt.value.split(" ").every(c => existingClasses.includes(c))) {
-                    opt.selected = true;
-                    found = true;
-                    break;
-                }
-            }
-        }
-        if (!found) {
-            selectType.value = "";
-        }
-    },
-};
-
-const typeClassCheckbox = {
-    inputHtml:  `<input type="checkbox" class="form-check-input" style="width: auto; margin-left: 2px; appearance: auto;" /> `,
-    onPropertyChange: ({elInput, component, trait })=>{
-        const input = elInput.querySelector('input');
-        let opts = trait.get('options') || [];
-        if(!Array.isArray(opts)){
-            opts = [opts] ;
-        }
-
-        if (input.checked) {
-            component.addClass(opts);
-        } else {
-            component.removeClass(opts);
-        }
-    },
-    onComponentSelected: ({elInput, component, trait })=>{
-        const input = elInput.querySelector('input');
-        let opts = trait.get('options') || [];
-        if(!Array.isArray(opts)){
-            opts = [opts] ;
-        }
-
-        input.checked = opts.every(className=>component.getClasses().includes(className));
-    },
-
-};
-
-const typeAttributeCheckbox = {
-    inputHtml:  `<input type="checkbox" class="form-check-input" style="width: auto; margin-left: 2px; appearance: auto;" /> `,
-    onPropertyChange: ({elInput, component, trait })=>{
-        const input = elInput.querySelector('input');
-        let opts = trait.get('options') || [];
-        if(typeof(opts) === "string"){
-            let objOpt = {};
-            objOpt[opts] = true;
-            opts = objOpt ;
-        }
-        let attributes = component.getAttributes();
-        if (input.checked) {
-            for(let k of Object.keys(opts)){
-                attributes[k] = opts[k];
-            }
-        } else {
-            for(let k of Object.keys(opts)){
-                delete attributes[k] ;
-            }
-        }
-        component.setAttributes(attributes);
-    },
-    onComponentSelected: ({elInput, component, trait })=>{
-        const input = elInput.querySelector('input');
-        let opts = trait.get('options') || [];
-        if(typeof(opts) === "string"){
-            let objOpt = {};
-            objOpt[opts] = true;
-            opts = objOpt ;
-        }
-
-        let attributes = component.getAttributes();
-        input.checked = Object.keys(opts).every(k=>attributes[k]===opts[k]);
-    },
-
-};
+import { typeAttributeCheckbox, typeClassCheckbox, typeClassSelect, typeAttributeMargin, typeAttributeMarginXY } from "./traits.mjs";
 
 function createCustomTrait({ inputHtml, onPropertyChange, onComponentSelected }){
     return {
@@ -164,7 +39,57 @@ function createCustomTrait({ inputHtml, onPropertyChange, onComponentSelected })
     };
 }
 
-const BOOTSTRAP_BLOCKS = [
+const BOOTSTRAP_LAYOUT = [    
+    {
+        id: "bs-grid",
+        classId: "row",
+        url: "https://getbootstrap.com/docs/5.3/layout/grid/",
+        icon: `<div class="row ms-1 me-1">
+    <div class="col-4 p-0 bg-info border rounded-1">... </div>
+    <div class="col-4 p-0 bg-info border rounded-1">... </div>
+    <div class="col-4 p-0 bg-info border rounded-1">... </div>
+  </div>`,
+        label: "Grid",
+        content: `<div class="row">
+    <div class="col">
+      Column
+    </div>
+    <div class="col">
+      Column
+    </div>
+    <div class="col">
+      Column
+    </div>
+  </div>`,
+        properties: [
+            { 
+                label: "Vertical Alignment",
+                classPrefix: "align-items",
+                classes: [ "", "start",  "center", "end"],
+                url: "https://getbootstrap.com/docs/5.3/layout/columns/#vertical-alignment"
+            },
+            { 
+                label: "Horizontal Alignment",
+                classPrefix: "justify-content",
+                classes: [ "", "start",  "center", "end", "around", "between", "evenly"],
+                url: "https://getbootstrap.com/docs/5.3/layout/columns/#horizontal-alignment"
+            },
+            { 
+                label: "Number of columns",
+                classPrefix: "row-cols",
+                classes: [ "", "1",  "2", "3", "4", "5", "6", "auto"],
+                url: "https://getbootstrap.com/docs/5.3/layout/grid/#row-columns"
+            },
+            { 
+                label: "Gutters",
+                marginClassXY: "g",
+                url: "https://getbootstrap.com/docs/5.3/layout/gutters/"
+            },
+        ]
+    },
+]
+
+const BOOTSTRAP_COMPONENTS = [    
     {
         id: "bs-alerts",
         classId: "alert",
@@ -428,16 +353,29 @@ const BOOTSTRAP_BLOCKS = [
     }
 ]
 
+const BOOTSTRAP_BLOCKS = [
+    {
+        name: "Layout",
+        blocks: BOOTSTRAP_LAYOUT
+    },
+    {
+        name: "Components",
+        blocks: BOOTSTRAP_COMPONENTS
+    }
+]
 
-function bootstrapPublic(editor) {
+const IMG_HELP = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-question-circle" viewBox="0 0 16 16">
+<path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"></path>
+<path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286m1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94"></path></svg>`;
+
+function bootstrapPlugin(editor) {
     editor.Traits.addType('class_select', createCustomTrait(typeClassSelect));
     editor.Traits.addType('class_checkbox', createCustomTrait(typeClassCheckbox));
     editor.Traits.addType('attribute_checkbox', createCustomTrait(typeAttributeCheckbox));
-    const defaultType = editor.DomComponents.getType('default');
+    editor.Traits.addType('attribute_margin', createCustomTrait(typeAttributeMargin));
+    editor.Traits.addType('attribute_margin_xy', createCustomTrait(typeAttributeMarginXY));
+    const defaultType = editor.Components.getType('default');
     const defaultModel = defaultType.model;
-
-
-    let categoryName = "Bootstrap";
 
     const contexts = [
         'primary',
@@ -450,128 +388,117 @@ function bootstrapPublic(editor) {
         'dark',
     ]; 
 
-    for(let block of BOOTSTRAP_BLOCKS){
-        editor.Blocks.add(block.id, {
-            media: `<div class="position-relative">${block.icon}${block.url?`
-                <div style="position: absolute; top: -13px; right:-9px; z-index: 999">
-                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" class="bi bi-question-circle" viewBox="0 0 16 16">
-  <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
-  <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286m1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94"/>
-</svg>
-                </div>`:""}</div>`,
-            label: block.label,
-            attributes: {
-                title: block.label,
-                onclick: block.url?`(event.offsetX>70 && event.offsetY<10)?window.open('${block.url}'):''`:""
-            },
-            category: categoryName,
-            content:  block.content
-        });
-        let traits = defaultModel.prototype.defaults.traits;
-        for(let prop of block.properties){
-            let trait = {
-                name: prop.name??(block.id+"_"+prop.label),
-                title: prop.label,
-                label: prop.label+`${prop.url?` <a href="${prop.url}" target="_blank" class="ms-auto text-decoration-none text-white"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-question-circle" viewBox="0 0 16 16">
-  <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"></path>
-<path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286m1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94"></path></svg></a>`:""}`
+    
+    for(let category of BOOTSTRAP_BLOCKS){
+        for(let block of category.blocks){
+            editor.Blocks.add(block.id, {
+                media: `<div class="position-relative">${block.icon}${block.url?`
+                    <div style="position: absolute; top: -13px; right:-9px; z-index: 999">
+                    ${IMG_HELP}
+                    </div>`:""}</div>`,
+                label: block.label,
+                attributes: {
+                    title: block.label,
+                    onclick: block.url?`(event.offsetX>70 && event.offsetY<10)?window.open('${block.url}'):''`:""
+                },
+                category: category.name,
+                content:  block.content
+            });
+            let traits = [];
+            for(let trait of defaultModel.prototype.defaults.traits){
+                traits.push(trait) ;
             }
-            if(prop.classPrefix){
-                trait.type = 'class_select' ;
-                let classes = prop.classes;
-                if(!classes){
-                    classes = contexts;
+            for(let prop of block.properties){
+                let trait = {
+                    name: prop.name??(block.id+"_"+prop.label),
+                    title: prop.label,
+                    label: prop.label+`${prop.url?` <a href="${prop.url}" target="_blank" class="ms-auto text-decoration-none text-white">${IMG_HELP}</a>`:""}`
                 }
-                trait.options = [
-                    ... classes.map((v) => { return {value: `${prop.classPrefix}-${v}`, name: v} ; }),
-                ] ;
-            }else if(prop.classToggle){
-                trait.type = 'class_checkbox' ;
-                trait.options = prop.classToggle ;
-            }else if(prop.attributeToggle){
-                trait.type = 'attribute_checkbox' ;
-                trait.options = prop.attributeToggle ;
-            }else if(prop.customType){
-                editor.Traits.addType(block.id+"_"+prop.label, createCustomTrait(prop.customType));
-                trait.type = block.id+"_"+prop.label ;
-            }
-            traits.push(trait) ;
-        }
-        editor.Components.addType(block.id, {
-            isComponent: (el) => {
-                if(block.classId){
-                    if(el && el.classList && el.classList.contains(block.classId)) {
-                        return {type: block.id};
+                if(prop.classPrefix){
+                    trait.type = 'class_select' ;
+                    let classes = prop.classes;
+                    if(!classes){
+                        classes = contexts;
                     }
+                    trait.options = [
+                        ... classes.map((v) => { return {value: `${prop.classPrefix}-${v}`, name: v} ; }),
+                    ] ;
+                }else if(prop.classToggle){
+                    trait.type = 'class_checkbox' ;
+                    trait.options = prop.classToggle ;
+                }else if(prop.attributeToggle){
+                    trait.type = 'attribute_checkbox' ;
+                    trait.options = prop.attributeToggle ;
+                }else if(prop.marginClass){
+                    trait.type = 'attribute_margin' ;
+                    trait.options = prop.marginClass ;
+                }else if(prop.marginClassXY){
+                    trait.type = 'attribute_margin_xy' ;
+                    trait.options = prop.marginClassXY ;
+                }else if(prop.customType){
+                    editor.Traits.addType(block.id+"_"+prop.label, createCustomTrait(prop.customType));
+                    trait.type = block.id+"_"+prop.label ;
                 }
-            },
-            model: {
-                defaults: {
-                    "custom-name": block.label,
-                    //tagName: 'card',
-                    draggable: true,
-                    droppable: true,
-                    traits: traits
-                }
-            },
-        });
+                traits.push(trait) ;
+            }
+            //traits.push(traitMargin) ;
+            editor.Components.addType(block.id, {
+                isComponent: (el) => {
+                    if(block.classId){
+                        if(el && el.classList && el.classList.contains(block.classId)) {
+                            return {type: block.id};
+                        }
+                    }
+                },
+                model: {
+                    defaults: {
+                        "custom-name": block.label,
+                        //tagName: 'card',
+                        draggable: true,
+                        droppable: true,
+                        traits: traits
+                    }
+                },
+            });
+        }
     }
 
-/*
-    editor.Blocks.add('b-alert2', {
-       
-        label:`<div class="alert alert-primary p-1" role="alert">
-        <svg width="10" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--!Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.--><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zm0-384c13.3 0 24 10.7 24 24l0 112c0 13.3-10.7 24-24 24s-24-10.7-24-24l0-112c0-13.3 10.7-24 24-24zM224 352a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z"/></svg>
-        ...
-        </div>
+    //add default trait for all types
+    let types = editor.Components.getTypes();
+    for(let type of types){
+        if(type.id !== "default"){
+            editor.Components.addType(type.id, {
+                isComponent: type.isComponent,
+                extend: type.id,
+                model: { 
+                    defaults: {
+                        traits: type.model.prototype.defaults.traits.concat([
+                            {
+                                name: "bs-margin",
+                                title: "Margin",
+                                label: `Margin <a href="https://getbootstrap.com/docs/5.3/utilities/spacing/#margin-and-padding" target="_blank" class="ms-auto text-decoration-none text-white">${IMG_HELP}</a>`,
+                                type: 'attribute_margin',
+                                options:'m'
+                            },
+                            {
+                                name: "bs-padding",
+                                title: "Padding",
+                                label: `Padding <a href="https://getbootstrap.com/docs/5.3/utilities/spacing/#margin-and-padding" target="_blank" class="ms-auto text-decoration-none text-white">${IMG_HELP}</a>`,
+                                type: 'attribute_margin',
+                                options:'p'
+                            },
+                        ])
+                    }
+                }, 
+            });
+        }
+    }
 
-        <div class="gjs-block-label">Alert</div>`
-        ,
-        category: categoryName,
-        content: `<div class="alert alert-primary p-2" role="alert">
-        <svg class="me-2" width="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--!Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.--><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zm0-384c13.3 0 24 10.7 24 24l0 112c0 13.3-10.7 24-24 24s-24-10.7-24-24l0-112c0-13.3 10.7-24 24-24zM224 352a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z"/></svg>
-        <span>...</span>
-      </div>`
-    });
-
-
-    /*
-    editor.Components.addType('alert', {
-        isComponent: (el) => {
-            if(el && el.classList && el.classList.contains('alert')) {
-                return {type: 'alert'};
-            }
-        },
-        model: {
-            defaults: {
-                "custom-name": "Alert",
-                tagName: 'card',
-                draggable: true,
-                droppable: true,
-                traits: defaultModel.prototype.defaults.traits.concat([
-                    {
-                        type: 'class_select',
-                        options: [
-                            ... contexts.map((v) => { return {value: `alert-${v}`, name: v} ; }),
-                        ],
-                        label: "Color"
-                    },
-                    /*{ name: 'display-responsive', type: 'z-display-responsive' },
-                    { name: 'z-typo', type: 'z-typo' },
-                    { name: 'z-background-image', type: 'z-background-image' },
-                    { name: 'z-size', type: 'z-size' },
-                    { name: 'z-borders', type: 'z-borders' },
-                    { name: 'z-margins', type: 'z-margins' },
-                    { name: 'z-paddings', type: 'z-margins', marginType: "padding" }*
-                ])
-            }
-        },
-    });*/
-  }
+}
 
 export default {
     configure: async function({config}){
-        config.plugins.push(bootstrapPublic) ;
+        config.plugins.push(bootstrapPlugin) ;
         config.canvas.styles.push("https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css")
 
         
