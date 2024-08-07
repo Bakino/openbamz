@@ -40,9 +40,40 @@ function createCustomTrait({ inputHtml, onPropertyChange, onComponentSelected })
     };
 }
 
-const BOOTSTRAP_LAYOUT = [    
+let allColClasses = [".col"];
+for(let i=1; i<=12; i++){
+    allColClasses.push(".col-"+i);
+    for(let size of ["sm", "md", "lg", "xl", "xxl"]){
+        allColClasses.push(".col-"+size+"-"+i);
+    }
+}
+
+const BOOTSTRAP_LAYOUT = [  
     {
-        id: "bs-grid",
+        id: "bs-container",
+        classId: "container",
+        url: "https://getbootstrap.com/docs/5.3/layout/containers/",
+        icon: `<div class="border border-info rounded p-1"><div class="row ms-1 me-1">
+    <div class="col-4 p-0 bg-info border rounded-1">... </div>
+    <div class="col-4 p-0 bg-info border rounded-1">... </div>
+    <div class="col-4 p-0 bg-info border rounded-1">... </div>
+  </div></div>`,
+        label: "Container",
+        content: `<div class="container"><div class="row">
+    <div class="col"></div>
+    <div class="col"></div>
+    <div class="col"></div>
+  </div></div>`,
+        properties: []
+    },
+    {
+        id: "bs-row",
+        draggable: 
+            [
+                ".container", ".container-sm", ".container-md", ".container-lg", 
+                ".container-xl", ".container-xxl", ".container-fluid",
+                ".container-fluid",
+            ].concat(allColClasses),
         classId: "row",
         url: "https://getbootstrap.com/docs/5.3/layout/grid/",
         icon: `<div class="row ms-1 me-1">
@@ -50,17 +81,11 @@ const BOOTSTRAP_LAYOUT = [
     <div class="col-4 p-0 bg-info border rounded-1">... </div>
     <div class="col-4 p-0 bg-info border rounded-1">... </div>
   </div>`,
-        label: "Grid",
+        label: "Grid row",
         content: `<div class="row">
-    <div class="col">
-      Column
-    </div>
-    <div class="col">
-      Column
-    </div>
-    <div class="col">
-      Column
-    </div>
+    <div class="col"></div>
+    <div class="col"> </div>
+    <div class="col"></div>
   </div>`,
         properties: [
             { 
@@ -456,8 +481,8 @@ function bootstrapPlugin(editor) {
                     defaults: {
                         "custom-name": block.label,
                         //tagName: 'card',
-                        draggable: true,
-                        droppable: true,
+                        draggable: block.draggable===undefined?true:block.draggable,
+                        droppable: block.droppable===undefined?true:block.droppable,
                         traits: traits
                     }
                 },
@@ -465,7 +490,6 @@ function bootstrapPlugin(editor) {
         }
     }
 
-    //add actions on columns of grid system
     editor.Components.addType("bs-col", {
         isComponent: (el) => {
             let match = false;
@@ -481,7 +505,7 @@ function bootstrapPlugin(editor) {
         model: {
             defaults: {
                 "custom-name": "Column",
-                draggable: true,
+                draggable: '.row',
                 droppable: true,
                 resizable: {
                     /*
@@ -642,6 +666,7 @@ export default {
     configure: async function({config}){
         config.plugins.push(bootstrapPlugin) ;
         config.canvas.styles.push("https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css")
+        config.canvas.styles.push("/plugin/app/grapesjs-bootstrap5/canvas-style.css")
 
         
         window.openbamz.loadCss("https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css")
