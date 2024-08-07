@@ -1,3 +1,4 @@
+import { panelDevices } from "./devices.mjs";
 import { typeAttributeCheckbox, typeClassCheckbox, typeClassSelect, typeAttributeMargin, typeAttributeMarginXY } from "./traits.mjs";
 
 function createCustomTrait({ inputHtml, onPropertyChange, onComponentSelected }){
@@ -369,6 +370,8 @@ const IMG_HELP = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
 <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286m1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94"></path></svg>`;
 
 function bootstrapPlugin(editor) {
+    panelDevices(editor);
+
     editor.Traits.addType('class_select', createCustomTrait(typeClassSelect));
     editor.Traits.addType('class_checkbox', createCustomTrait(typeClassCheckbox));
     editor.Traits.addType('attribute_checkbox', createCustomTrait(typeAttributeCheckbox));
@@ -441,7 +444,6 @@ function bootstrapPlugin(editor) {
                 }
                 traits.push(trait) ;
             }
-            //traits.push(traitMargin) ;
             editor.Components.addType(block.id, {
                 isComponent: (el) => {
                     if(block.classId){
@@ -462,6 +464,146 @@ function bootstrapPlugin(editor) {
             });
         }
     }
+
+    //add actions on columns of grid system
+    editor.Components.addType("bs-col", {
+        isComponent: (el) => {
+            let match = false;
+            if(el && el.classList) {
+                el.classList.forEach(function(klass) {
+                    if(klass=="col" || klass.match(/^col-/)) {
+                        match = true;
+                    }
+                });
+            }
+            if(match) return {type: 'bs-col'};
+        },
+        model: {
+            defaults: {
+                "custom-name": "Column",
+                draggable: true,
+                droppable: true,
+                resizable: {
+                    /*
+                    by default the resizer will set the width style attribute on the CSS class of the element
+                    //https://github.com/GrapesJS/grapesjs/blob/819bfcf44bb23d51990eba3b4330e9932df59cde/src/commands/view/SelectComponent.ts#L483
+                    in onStart / onUpdateContainer, we remove the CSS
+                    */
+                    onStart: (ev, opt)=>{
+                        console.log("onStart", ev, opt)
+                        let model = editor.getSelected() ;
+                        opt.resizer.modelToStyle = editor.Styles.getModelToStyle(model);
+                    },
+                    onUpdateContainer: (opt)=>{
+                        let model = editor.getSelected() ;
+                        if(opt.resizer.modelToStyle){
+                            const finalStyle = {
+                                width: ""
+                            };
+                            opt.resizer.modelToStyle.addStyle(finalStyle, { avoidStore: true });
+                            editor.Styles.__emitCmpStyleUpdate(finalStyle, { components: model });
+                        }
+                    },
+                    //avoidContainerUpdate: true,
+                    updateTarget: (el, rect)=>{
+                        const selected =  editor.getSelected() ;
+                        if(!selected){ return ; }
+                        console.log("selected", selected)
+                        
+                        //compute the current screen size (bootstrap semantic)
+                        let currentSize = editor.getDevice();
+                        if(currentSize === "xs"){
+                            currentSize = ""
+                        }
+                        
+
+                        console.log("current size is "+currentSize);
+
+                        //compute the threshold when add on remove 1 col span to the element
+                        const row = el.parentElement ;
+                        const oneColWidth = row.offsetWidth / 12 ;
+                        console.log("one col width "+oneColWidth);
+                        //the threshold is half one column width
+                        const threshold = oneColWidth*0.5 ;
+                        console.log("threshold "+threshold);
+
+                        //check if we are growing or shrinking the column
+                        const grow = rect.w > el.offsetWidth + threshold;
+                        const shrink = rect.w < el.offsetWidth - threshold;
+                        console.log("rect.w" , rect.w ,  "el.offsetWidth",  el.offsetWidth, "grow "+grow, "shrink "+shrink);
+
+                        if(grow || shrink){
+                            let found = false;
+                            let sizesSpans = {} ;
+                            let oldSpan = 0;
+                            let oldClass = null;
+                            for(let cl of el.classList){
+                                if(cl.indexOf("col-") === 0){
+                                    let [,size,span] = cl.split("-") ;
+                                    if(!span){
+                                        span = size;
+                                        size = "" ;
+                                    }
+                                    sizesSpans[size] = span ;
+                                    if(size === currentSize){
+                                        //found the col-XX-99 class
+                                        oldClass = cl;
+                                        oldSpan = span ;
+                                        found = true;
+                                    }
+                                }
+                            }
+
+                            if(!found){
+                                const sizeOrder = ["", "xs", "sm", "md", "lg", "xl", "xxl"] ;
+                                for(let s of sizeOrder){
+                                    if(sizesSpans[s]){
+                                        oldSpan = sizesSpans[s];
+                                        found = true ;
+                                    }
+                                    if(s === currentSize){
+                                        break;
+                                    }
+                                }
+                            }
+
+                            let newSpan = Number(oldSpan) ;
+                            if(grow){
+                                newSpan++ ;
+                            }else{
+                                newSpan-- ;
+                            }
+                            if(newSpan > 12){ newSpan = 12 ; }
+                            if(newSpan < 1){ newSpan = 1 ; }
+
+                            let newClass = "col-"+currentSize+"-"+newSpan ;
+                            if(!currentSize){
+                                newClass = "col-"+newSpan ;
+                            }
+                            //update the class
+                            selected.addClass(newClass) ;
+                            if(oldClass && oldClass !== newClass){
+                                selected.removeClass(oldClass) ;
+                            }
+                            //notify the corresponding trait to update its value accordingly
+                            let trait = selected.getTrait((currentSize||"xs")+"_width");
+                            if(trait && trait.view){
+                                trait.view.postUpdate() ;
+                            }
+                        }
+                    },
+                    tl: 0, 
+                    tc: 0, 
+                    tr: 0, 
+                    cl: 0, 
+                    cr: 1, 
+                    bl: 0, 
+                    bc: 0, 
+                    br: 0 
+                },
+            }
+        },
+    });
 
     //add default trait for all types
     let types = editor.Components.getTypes();
